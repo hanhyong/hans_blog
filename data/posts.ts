@@ -44,20 +44,13 @@ export const posts: Post[] = [
     folder: "javascript",
     series: "counter-demo3",
     tag: "playground",
-    description:
+    description:  
       "Next.js와 간단한 컴포넌트를 이용해서, 블로그 글 안에서 바로 JS 코드를 실행해보는 플레이그라운드를 만듭니다.",
     content: [
       "이 글에서는 아주 단순한 JS 실행기를 블로그에 붙여 봅니다.",
       "",
       "아래 코드 박스에서 console.log를 사용해 값을 출력해 볼 수 있습니다.",
       "브라우저에서 코드를 직접 실행해 보면서 문법을 익히는 것이 목표입니다.",
-    ].join("\n"),
-    demoCode: [
-      "// 예시 코드: 콘솔에 간단한 메시지 출력",
-      "const name = '생교 dev';",
-      "for (let i = 1; i <= 3; i++) {",
-      "  console.log(`${i}회차: 안녕, ${name}!`);",
-      "}",
     ].join("\n"),
   },
   {
@@ -95,8 +88,18 @@ export const posts: Post[] = [
     tag: "demo",
     description: "public/projects 안에 있는 HTML 프로젝트를 블로그 글 안에 iframe으로 임베드하고, 새 탭으로 바로 실행하는 방법을 정리합니다.",
     content: "이 글에서는 public/projects 폴더 안에 있는 HTML 프로젝트를 블로그 글 안에 직접 임베드하는 방법을 정리합니다.\n\n먼저, public/projects/counter-demo/index.html 파일을 만들어 간단한 카운터 예제를 작성합니다. 그런 다음, data/posts.ts에서 이 글에 projects: [\"counter-demo\"]를 연결하면 됩니다.\n\n아래 박스에서 카운터 데모를 바로 실행해 볼 수 있습니다. 프로젝트 전체 화면이 보고 싶다면 \"새 탭에서 실행\" 버튼을 눌러 확인할 수 있습니다.\n",
-    demoCode: "// JS Playground에서 counter 개념만 간단히 확인해 보는 코드\nlet count = 0;\nfor (let i = 0; i < 5; i++) {\n  count += 1;\n  console.log(`현재 count: ${count}`);\n}",
     projects: ["counter-demo"],
+  },
+  {
+    slug: "post-2025-11-26",
+    title: "커피내기",
+    date: "2025-11-26",
+    folder: "javascript",
+    series: "project_coffee",
+    tag: "game",
+    description: "롤로 커피내기",
+    content: "커피내기 하는 프로그램입니다.",
+    projects: ["coffee"],
   },
 ];
 export function getPostBySlug(slug: string): Post | undefined {

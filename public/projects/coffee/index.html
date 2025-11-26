@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>생교 딜량 계산체계 · 파스텔</title>
+  <meta name="color-scheme" content="light"/>
+  <style>
+    :root{
+      --bg:#fffaf5;
+      --panel:#ffffffcc;
+      --ink:#263238;
+      --muted:#607d8b;
+      --line:#e8eef2;
+      --accent:#ff90b5;
+      --accent-2:#8be0d4;
+      --accent-3:#ffd580;
+      --chip:#f7fbff;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--ink);
+      font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #ffe6f1 0%, transparent 60%),
+        radial-gradient(900px 500px at 110% 0%, #e3fff7 0%, transparent 60%),
+        radial-gradient(900px 600px at 20% 110%, #fff2cc 0%, transparent 60%),
+        var(--bg);
+    }
+    .wrap{max-width:980px;margin:28px auto;padding:16px}
+    .card{
+      background:var(--panel); backdrop-filter: blur(6px);
+      border:1px solid var(--line); border-radius:22px;
+      box-shadow:0 10px 40px rgba(0,0,0,.05);
+      padding:18px; margin-bottom:14px;
+    }
+    h1{margin:0 0 6px; font-size:22px}
+    .sub{color:var(--muted); font-size:14px}
+
+    .head, .grid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr .9fr;
+      gap:10px; align-items:center;
+    }
+    .head{color:#78909c; font-size:13px; margin:8px 0 4px}
+    .row{display:contents}
+
+    input[type="number"],
+    input[type="text"]{
+      width:100%; padding:10px 12px;
+      border-radius:14px; border:1px solid var(--line);
+      background:#ffffff; color:var(--ink);
+      outline:none;
+      box-shadow: inset 0 1px 0 rgba(0,0,0,.02);
+      font-size:14px;
+    }
+    input[type="number"]:focus,
+    input[type="text"]:focus{
+      border-color:#ffc1d8; box-shadow:0 0 0 3px #ffe6f1;
+    }
+
+    .result{
+      display:flex;flex-direction:column;
+      gap:12px;margin-top:12px;align-items:stretch
+    }
+    .cardlet{
+      background:#fff;border:1px solid var(--line);
+      border-radius:16px;padding:10px 12px;
+      box-shadow:0 4px 14px rgba(0,0,0,.06);
+      display:flex;justify-content:space-between;
+      align-items:center;gap:10px;
+      transition:transform .45s ease, box-shadow .3s ease, border-color .3s ease;
+      will-change:transform;transform-origin:top left;
+    }
+    .cardlet.buyer{
+      border-color:#8be0d4;
+      box-shadow:0 0 0 3px #dcfaf4 inset, 0 8px 18px rgba(139,224,212,.25);
+    }
+    .cardlet .name{font-weight:700}
+    .cardlet .val{
+      font-weight:800;font-size:20px;
+      font-variant-numeric:tabular-nums;
+      min-width:110px;text-align:right
+    }
+    .rank{
+      display:inline-flex;align-items:center;justify-content:center;
+      min-width:34px;height:28px;border-radius:999px;
+      background:#fff0f6;border:1px solid #ffd4e6;
+      font-weight:700;color:#c2185b;margin-right:8px;
+      font-size:13px
+    }
+    .cardlet input[type="checkbox"]{
+      margin-right:6px;width:16px;height:16px;
+      accent-color:#ff90b5;
+    }
+
+    .btnbar{
+      display:flex; gap:12px; flex-wrap:wrap;
+      align-items:center; margin-top:10px
+    }
+    .btn{
+      cursor:pointer; border:1px solid var(--line);
+      background:#fff; color:var(--ink);
+      padding:10px 14px; border-radius:14px;
+      font-weight:600; font-size:14px;
+    }
+    .btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 4px 10px rgba(0,0,0,.06)
+    }
+    .btn.cta{
+      font-size:17px; padding:12px 20px; border-radius:18px;
+      border:2px solid #ffd4e6;
+      background:linear-gradient(180deg, #fff5fa, #ffe9f3);
+      color:#c2185b;
+    }
+
+    .label{font-size:13px; color:#7a8a93}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+
+    @media (max-width:640px){
+      .wrap{padding:10px}
+      .head, .grid{
+        grid-template-columns:1.1fr .9fr;
+        grid-auto-rows:auto;
+      }
+      .head div:nth-child(3),
+      .row input:nth-child(3){
+        grid-column:1 / span 2;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <!-- 헤더 -->
+  <div class="card" style="display:flex; align-items:center; gap:12px">
+    <div style="font-size:28px">🫧☕️</div>
+    <div>
+      <h1>생교 딜량 계산체계</h1>
+      <div class="sub">이번 판 딜량과 배율을 입력하고, 커피 산 사람을 체크해서 다음 판 배율을 조정해요.</div>
+    </div>
+  </div>
+
+  <!-- 입력/결과 카드 -->
+  <div class="card">
+    <div class="label">✔ 아래 카드에서 <b>이번 판에 커피를 산 사람만 체크</b>하세요. 체크된 사람은 다음 판 배율이 올라가고, 나머지는 내려갑니다.</div>
+
+    <div class="head">
+      <div>이름</div>
+      <div>가한 피해량</div>
+      <div>배율(%)</div>
+    </div>
+    <div id="rows" class="grid"></div>
+
+    <div class="btnbar">
+      <button id="copyLink" class="btn cta">📎 다음 라운드 링크 복사</button>
+      <span class="label">링크에는 이름·배율만 저장되고, 딜량은 0으로 초기화돼요.</span>
+    </div>
+
+    <div id="out" class="result" aria-live="polite" aria-atomic="true"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+(() => {
+  const PLAYER_COUNT = 5;
+
+  const state = {
+    names:  Array(PLAYER_COUNT).fill(''),
+    damage: Array(PLAYER_COUNT).fill(0),
+    coeff:  Array(PLAYER_COUNT).fill(100),
+    coffee: new Set(),          // 이번 판에 커피 산 사람 인덱스
+  };
+
+  const rowsEl  = document.getElementById('rows');
+  const outEl   = document.getElementById('out');
+  const copyBtn = document.getElementById('copyLink');
+
+  // ===== URL 직렬화/역직렬화 =====
+  function fromQuery(){
+    try {
+      const p = new URLSearchParams(location.search);
+
+      const ns = p.get('names');
+      if (ns) {
+        const arr = JSON.parse(ns);
+        if (Array.isArray(arr) && arr.length === PLAYER_COUNT) {
+          state.names = arr.map(v => typeof v === 'string' ? v : String(v ?? ''));
+        }
+      }
+
+      const c = (p.get('coeff') || '').split(',').map(x => +x);
+      const d = (p.get('damage') || '').split(',').map(x => +x);
+
+      if (c.length === PLAYER_COUNT && c.every(x => !Number.isNaN(x))) {
+        state.coeff = c;
+      }
+      if (d.length === PLAYER_COUNT && d.every(x => !Number.isNaN(x))) {
+        state.damage = d.map(v => v || 0);
+      }
+    } catch (err) {
+      console.error('fromQuery error', err);
+    }
+  }
+
+  function toQuery(obj){
+    const p = new URLSearchParams();
+    if (obj.names)   p.set('names', JSON.stringify(obj.names));
+    if (obj.coeff)   p.set('coeff', obj.coeff.join(','));
+    if (obj.damage)  p.set('damage', obj.damage.join(','));
+    return '?' + p.toString();
+  }
+
+  // ===== 입력 행 =====
+  function makeRow(i){
+    const cont = document.createElement('div');
+    cont.className = 'row';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.placeholder = '소환사 이름';
+    nameInput.value = state.names[i] || '';
+    nameInput.addEventListener('input', () => {
+      state.names[i] = nameInput.value.trim();
+      renderResult();
+    });
+
+    const dmg = document.createElement('input');
+    dmg.type = 'number';
+    dmg.min = '0';
+    dmg.placeholder = '0';
+    dmg.value = state.damage[i] || '';
+    dmg.addEventListener('input', () => {
+      state.damage[i] = +dmg.value || 0;
+      renderResult();
+    });
+
+    const cof = document.createElement('input');
+    cof.type = 'number';
+    cof.step = '0.001';
+    cof.value = state.coeff[i];
+    cof.addEventListener('input', () => {
+      state.coeff[i] = +cof.value || 0;
+      renderResult();
+    });
+
+    cont.append(nameInput, dmg, cof);
+    return cont;
+  }
+
+  function renderRows(){
+    rowsEl.innerHTML = '';
+    for (let i = 0; i < PLAYER_COUNT; i++){
+      rowsEl.appendChild(makeRow(i));
+    }
+  }
+
+  // ===== 순위 계산 =====
+  function rank(){
+    const arr = state.damage.map((d, i) => ({
+      i,
+      adj: d * (state.coeff[i] / 100)
+    }));
+    arr.sort((a, b) => a.adj - b.adj); // adj 작은 순
+    return arr;
+  }
+
+  // ===== 다음 판 배율 계산 (커피 산 사람 기준) =====
+  function nextCoeffs(coffeeIdx){
+    const buyerIdx = coffeeIdx.filter(i => i >= 0 && i < PLAYER_COUNT);
+    const buyerCount = buyerIdx.length;
+    const nonBuyerCount = PLAYER_COUNT - buyerCount;
+
+    if (buyerCount === 0 || nonBuyerCount === 0){
+      // 아무도 안 샀거나, 전원이 샀으면 배율 유지
+      return state.coeff.slice();
+    }
+
+    const next = state.coeff.slice();
+
+    const buffPerBuyer = 5; // 커피 산 사람 1명당 +5pp
+    const totalBuff = buffPerBuyer * buyerCount;
+    const nerfPerNonBuyer = +(totalBuff / nonBuyerCount).toFixed(3);
+
+    for (let i = 0; i < PLAYER_COUNT; i++){
+      if (buyerIdx.includes(i)) {
+        // 커피 산 사람: 배율 ↑
+        next[i] = +(next[i] + buffPerBuyer).toFixed(3);
+      } else {
+        // 안 산 사람: 배율 ↓
+        next[i] = +(next[i] - nerfPerNonBuyer).toFixed(3);
+      }
+      next[i] = Math.max(25, Math.min(300, next[i]));
+    }
+    return next;
+  }
+
+  // ===== 카드 + 애니메이션 =====
+  const cardElems = new Map(); // i -> {root, rankEl, nameEl, valEl, cbEl}
+  const displayVal = new Map();
+  const lastTarget = new Map();
+
+  function ensureCards(){
+    for (let i = 0; i < PLAYER_COUNT; i++){
+      if (cardElems.has(i)) continue;
+
+      const root = document.createElement('div');
+      root.className = 'cardlet';
+      root.dataset.i = String(i);
+
+      const left = document.createElement('div');
+      left.style.display = 'flex';
+      left.style.alignItems = 'center';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.title = '체크하면 이번 판에 커피 산 사람으로 표시됩니다.';
+      cb.addEventListener('change', () => {
+        if (cb.checked) state.coffee.add(i);
+        else state.coffee.delete(i);
+        renderResult();
+      });
+
+      const rankEl = document.createElement('span');
+      rankEl.className = 'rank';
+      rankEl.textContent = '-순위';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'name';
+      nameEl.textContent = `플레이어 ${i+1} :`;
+
+      left.append(cb, rankEl, nameEl);
+
+      const valEl = document.createElement('div');
+      valEl.className = 'val';
+      valEl.textContent = '0';
+
+      root.append(left, valEl);
+      outEl.append(root);
+      cardElems.set(i, {root, rankEl, nameEl, valEl, cbEl: cb});
+      displayVal.set(i, 0);
+    }
+  }
+
+  function animateValue(i, target, ms){
+    const ref = cardElems.get(i);
+    if (!ref) return;
+
+    const prevTarget = lastTarget.get(i);
+    if (prevTarget === target){
+      ref.valEl.textContent = (displayVal.get(i) || 0).toLocaleString();
+      return;
+    }
+    lastTarget.set(i, target);
+
+    const start = performance.now();
+    const from = displayVal.get(i) ?? 0;
+    const dur = Math.max(80, Math.min(1500, ms || 500));
+    const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) / 2;
+
+    function frame(now){
+      const p = Math.min(1, (now - start) / dur);
+      const e = ease(p);
+      const val = Math.round(from + (target - from) * e);
+      ref.valEl.textContent = val.toLocaleString();
+      if (p < 1){
+        requestAnimationFrame(frame);
+      } else {
+        displayVal.set(i, target);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function renderResult(){
+    ensureCards();
+    const arr = rank();
+    const coffeeIdx = Array.from(state.coffee);
+
+    const first = new Map();
+    cardElems.forEach(({root}) => {
+      first.set(root, root.getBoundingClientRect());
+    });
+
+    const frag = document.createDocumentFragment();
+    arr.forEach(({i, adj}, idx) => {
+      const ref = cardElems.get(i);
+      if (!ref) return;
+
+      const displayRank = PLAYER_COUNT - idx;
+      const name = state.names[i] || `플레이어 ${i+1}`;
+
+      ref.rankEl.textContent = displayRank + '순위';
+      ref.nameEl.textContent = name + ' :';
+
+      const isBuyer = state.coffee.has(i);
+      ref.root.classList.toggle('buyer', isBuyer);
+      if (ref.cbEl) {
+        ref.cbEl.checked = isBuyer;
+      }
+
+      animateValue(i, Math.round(adj), 500);
+      frag.appendChild(ref.root);
+    });
+    outEl.appendChild(frag);
+
+    const moves = [];
+    cardElems.forEach(({root}) => {
+      const last = root.getBoundingClientRect();
+      const f = first.get(root);
+      if (!f) return;
+      const dx = f.left - last.left;
+      const dy = f.top  - last.top;
+      if (dx || dy){
+        moves.push({root, dx, dy});
+      }
+    });
+
+    moves.forEach(({root, dx, dy}) => {
+      root.style.transition = 'none';
+      root.style.transform = `translate(${dx}px, ${dy}px)`;
+    });
+    void outEl.offsetWidth;
+    requestAnimationFrame(() => {
+      moves.forEach(({root}) => {
+        root.style.transition = 'transform .45s ease';
+        root.style.transform = '';
+      });
+      setTimeout(() => {
+        moves.forEach(({root}) => { root.style.transition = ''; });
+      }, 500);
+    });
+
+    return { coffeeIdx, next: nextCoeffs(coffeeIdx) };
+  }
+
+  // ===== 링크 복사 =====
+  function copyNext(){
+    const res = renderResult();
+    const nextURL = location.origin + location.pathname + toQuery({
+      names: state.names,
+      coeff: res.next,
+      damage: Array(PLAYER_COUNT).fill(0)
+    });
+
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(nextURL).then(() => {
+        copyBtn.textContent = '✅ 복사됨! 다음 라운드 링크';
+        setTimeout(() => copyBtn.textContent = '📎 다음 라운드 링크 복사', 1200);
+      }, () => {
+        window.prompt('복사 실패! 아래 주소를 수동으로 복사하세요.', nextURL);
+      });
+    } else {
+      window.prompt('복사', nextURL);
+    }
+  }
+
+  // ===== Init =====
+  fromQuery();
+  renderRows();
+  renderResult();
+  copyBtn.addEventListener('click', copyNext);
+})();
+</script>
+</body>
+</html>
