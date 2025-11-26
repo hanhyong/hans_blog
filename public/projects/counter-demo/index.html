@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>Counter Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: #020617;
+        color: #e5e7eb;
+      }
+      .wrapper {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .card {
+        background: #020617;
+        border-radius: 1rem;
+        border: 1px solid #1f2937;
+        padding: 1.5rem;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.6);
+        max-width: 360px;
+        width: 100%;
+        text-align: center;
+      }
+      .title {
+        font-size: 1.1rem;
+        margin-bottom: 0.75rem;
+        color: #6ee7b7;
+      }
+      .count {
+        font-size: 2.5rem;
+        margin: 0.75rem 0 1rem;
+      }
+      .buttons {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+      }
+      button {
+        border-radius: 9999px;
+        border: 1px solid #374151;
+        background: #020617;
+        color: #e5e7eb;
+        padding: 0.4rem 0.9rem;
+        font-size: 0.85rem;
+        cursor: pointer;
+      }
+      button.primary {
+        background: #22c55e;
+        color: #020617;
+        border-color: #22c55e;
+      }
+      button:hover {
+        filter: brightness(1.05);
+      }
+      .hint {
+        margin-top: 0.75rem;
+        font-size: 0.75rem;
+        color: #9ca3af;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="card">
+        <div class="title">Counter Demo</div>
+        <div id="count" class="count">0</div>
+        <div class="buttons">
+          <button id="dec">-1</button>
+          <button id="reset">Reset</button>
+          <button id="inc" class="primary">+1</button>
+        </div>
+        <div class="hint">
+          이 프로젝트는 블로그에서 iframe으로 임베드되어 실행됩니다.
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const countEl = document.getElementById("count");
+      let count = 0;
+
+      function render() {
+        countEl.textContent = String(count);
+      }
+
+      document.getElementById("inc").addEventListener("click", () => {
+        count++;
+        render();
+      });
+
+      document.getElementById("dec").addEventListener("click", () => {
+        count--;
+        render();
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        count = 0;
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>

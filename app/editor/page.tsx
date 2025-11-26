@@ -36,11 +36,12 @@ export default function EditorPage() {
   const [slug, setSlug] = useState("");
   const [date, setDate] = useState(todayString());
   const [folder, setFolder] = useState("javascript");
+  const [series, setSeries] = useState("");
   const [tag, setTag] = useState("note");
   const [description, setDescription] = useState("");
   const [content, setContent] = useState("");
   const [demoCode, setDemoCode] = useState("");
-
+  const [projectsCsv, setProjectsCsv] = useState("");
   const generatedSnippet = useMemo(() => {
     if (!title.trim()) {
       return "// 제목은 최소한 입력해야 코드 스니펫이 생성됩니다.";
@@ -50,12 +51,19 @@ export default function EditorPage() {
     const safeTitle = escapeForTsString(title.trim());
     const safeFolder = escapeForTsString(folder.trim() || "misc");
     const safeTag = escapeForTsString(tag.trim() || "note");
+    const safeSeries = series.trim()
+      ? escapeForTsString(series.trim())
+      : "";
     const safeDescription = escapeForTsString(
       description.trim() || "설명 없음"
     );
 
     const contentString = content || "";
     const demoString = demoCode.trim();
+    const projectArray = projectsCsv
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
 
     const lines: string[] = [];
     lines.push("{");
@@ -63,6 +71,9 @@ export default function EditorPage() {
     lines.push(`  title: "${safeTitle}",`);
     lines.push(`  date: "${date}",`);
     lines.push(`  folder: "${safeFolder}",`);
+    if (safeSeries) {
+      lines.push(`  series: "${safeSeries}",`);   // ★ series가 있을 때만 추가
+    }
     lines.push(`  tag: "${safeTag}",`);
     lines.push(`  description: "${safeDescription}",`);
     lines.push(
@@ -77,10 +88,26 @@ export default function EditorPage() {
           .join("\\n")},`
       );
     }
+    if (projectArray.length > 0) {
+      const projectLiterals = projectArray
+        .map((p) => `"${escapeForTsString(p)}"`)
+        .join(", ");
+      lines.push(`  projects: [${projectLiterals}],`);
+    }
     lines.push("},");
 
     return lines.join("\n");
-  }, [title, slug, date, folder, tag, description, content, demoCode]);
+  }, [
+    title,
+    slug,
+    date,
+    folder,
+    tag,
+    description,
+    content,
+    demoCode,
+    projectsCsv,
+  ]);
 
   const previewParagraphs = useMemo(
     () =>
@@ -178,6 +205,23 @@ export default function EditorPage() {
                 placeholder="예) playground / concept / tutorial ..."
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                프로젝트/시리즈 ID (선택)
+              </label>
+              <input
+                value={series}
+                onChange={(e) => setSeries(e.target.value)}
+                className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-400"
+                placeholder="예) counter-demo, ecosystem-sim"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                같은 프로젝트에 속한 글들은 동일한 ID를 사용하세요. 이 ID로
+                <code>/blog/series/&lt;id&gt;</code> 페이지가 만들어집니다.
+              </p>
+            </div>
+
+
           </div>
 
           <div>
@@ -211,6 +255,21 @@ export default function EditorPage() {
               ].join("\n")}
             />
           </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                연결할 HTML 프로젝트 슬러그들 (쉼표로 구분, 선택)
+              </label>
+              <input
+                value={projectsCsv}
+                onChange={(e) => setProjectsCsv(e.target.value)}
+                className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-400"
+                placeholder="예) counter-demo, graph-sim"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                <code>public/projects/&lt;슬러그&gt;/index.html</code> 구조로 HTML
+                프로젝트를 만들어 두면, 여기서 연결할 수 있습니다.
+              </p>
+            </div>
 
           <div>
             <label className="block text-xs font-medium text-emerald-300 mb-1">

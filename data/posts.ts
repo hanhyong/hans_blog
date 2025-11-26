@@ -1,13 +1,20 @@
 // src/data/posts.ts
+// data/posts.ts
+
 export type Post = {
-  slug: string;
+  slug: string;          // /blog/[slug] 에서 쓸 URL
   title: string;
   date: string;
-  folder: string;      // ★ 폴더(대분류)
-  tag: string;         // 세부 태그/키워드
+
+  folder: string;        // 언어 / 큰 분류 (javascript, python, vba ...)
+  series?: string;       // 같은 프로젝트(시리즈)에 묶일 때 쓰는 ID (예: "counter-demo")
+
+  tag?: string;          // 세부 키워드 (없어도 되게 ? 처리)
   description: string;
   content: string;
-  demoCode?: string;   // JS Playground용 코드 (선택)
+
+  demoCode?: string;     // JS Playground용 코드
+  projects?: string[];   // HTML 임베드 프로젝트 슬러그들
 };
 
 export const posts: Post[] = [
@@ -16,6 +23,7 @@ export const posts: Post[] = [
     title: "블로그를 만든 이유와 전체 방향",
     date: "2025-11-22",
     folder: "intro",
+    series: "counter-demo4",
     tag: "intro",
     description:
       "생물교육 전공자가 왜 JS / Python / VBA 블로그를 만들었는지, 그리고 이 공간을 어떻게 포트폴리오로 활용할 계획인지 정리합니다.",
@@ -34,6 +42,7 @@ export const posts: Post[] = [
     title: "블로그 안에서 JS 코드 실행하기 (Playground 초안)",
     date: "2025-11-22",
     folder: "javascript",
+    series: "counter-demo3",
     tag: "playground",
     description:
       "Next.js와 간단한 컴포넌트를 이용해서, 블로그 글 안에서 바로 JS 코드를 실행해보는 플레이그라운드를 만듭니다.",
@@ -56,6 +65,7 @@ export const posts: Post[] = [
     title: "VBA는 왜 아직도 실무에서 많이 쓰일까?",
     date: "2025-11-22",
     folder: "vba",
+    series: "counter-demo2",
     tag: "concept",
     description:
       "엑셀 VBA가 여전히 사라지지 않는 이유와, 이 블로그에서 VBA를 다루는 방식에 대해 정리합니다.",
@@ -71,28 +81,72 @@ export const posts: Post[] = [
     title: "안녕하세요",
     date: "2002-03-30",
     folder: "javascript",
+    series: "counter-demo1",
     tag: "note",
     description: "설명 없음",
     content: "오늘은 밥을 먹었따",
   },
+  {
+    slug: "embed-html-counter-demo",
+    title: "HTML 카운터 데모를 블로그 글에 임베드해보기",
+    date: "2025-11-26",
+    folder: "javascript",
+    series: "counter-demo",          // ★ 프로젝트/시리즈 ID
+    tag: "demo",
+    description: "public/projects 안에 있는 HTML 프로젝트를 블로그 글 안에 iframe으로 임베드하고, 새 탭으로 바로 실행하는 방법을 정리합니다.",
+    content: "이 글에서는 public/projects 폴더 안에 있는 HTML 프로젝트를 블로그 글 안에 직접 임베드하는 방법을 정리합니다.\n\n먼저, public/projects/counter-demo/index.html 파일을 만들어 간단한 카운터 예제를 작성합니다. 그런 다음, data/posts.ts에서 이 글에 projects: [\"counter-demo\"]를 연결하면 됩니다.\n\n아래 박스에서 카운터 데모를 바로 실행해 볼 수 있습니다. 프로젝트 전체 화면이 보고 싶다면 \"새 탭에서 실행\" 버튼을 눌러 확인할 수 있습니다.\n",
+    demoCode: "// JS Playground에서 counter 개념만 간단히 확인해 보는 코드\nlet count = 0;\nfor (let i = 0; i < 5; i++) {\n  count += 1;\n  console.log(`현재 count: ${count}`);\n}",
+    projects: ["counter-demo"],
+  },
 ];
-// slug로 글 하나 찾기
 export function getPostBySlug(slug: string): Post | undefined {
-  return posts.find((post) => post.slug === slug);
+  return posts.find((p) => p.slug === slug);
 }
 
-// 폴더 목록 가져오기
 export function getFolders(): string[] {
+  return Array.from(new Set(posts.map((p) => p.folder))).sort();
+}
+
+export function getPostsByFolder(folder: string): Post[] {
+  return posts.filter((p) => p.folder === folder);
+}
+
+// 특정 folder 안에서 사용 중인 시리즈 목록
+export function getSeriesByFolder(folder: string): string[] {
   const set = new Set<string>();
-  for (const post of posts) {
-    set.add(post.folder);
+  for (const p of posts) {
+    if (p.folder === folder && p.series) {
+      set.add(p.series);
+    }
   }
   return Array.from(set).sort();
 }
 
-// 폴더별 글 목록 가져오기
-export function getPostsByFolder(folder: string): Post[] {
-  return posts
-    .filter((post) => post.folder === folder)
-    .sort((a, b) => (a.date > b.date ? -1 : 1)); // 날짜 내림차순
+// 특정 folder + series 조합의 글들
+export function getPostsBySeriesAndFolder(
+  series: string,
+  folder: string
+): Post[] {
+  return posts.filter(
+    (p) => p.folder === folder && p.series === series
+  );
+}
+
+// folder 안에서 series가 없는(단독) 글들
+export function getPostsWithoutSeriesByFolder(folder: string): Post[] {
+  return posts.filter((p) => p.folder === folder && !p.series);
+}
+
+// 시리즈 ID로 전역 검색
+export function getPostsBySeries(series: string): Post[] {
+  return posts.filter((p) => p.series === series);
+}
+
+// 존재하는 시리즈 ID 목록
+export function getAllSeries(): string[] {
+  const set = new Set<string>();
+  for (const p of posts) {
+    if (p.series) set.add(p.series);
+  }
+  return Array.from(set).sort();
 }
