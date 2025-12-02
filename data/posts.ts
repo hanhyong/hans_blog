@@ -101,6 +101,17 @@ export const posts: Post[] = [
     content: "커피내기 하는 프로그램입니다.",
     projects: ["coffee"],
   },
+  {
+    slug: "-",
+    title: "퀴즈 프로그램",
+    date: "2025-12-02",
+    folder: "javascript",
+    series: "퀴즈 프로그램",
+    tag: "note",
+    description: "설명 없음",
+    content: "퀴즈 프로그램이에여.\n공부할떄 쓸 수 있어요",
+    projects: ["quiz"],
+  },
 ];
 export function getPostBySlug(slug: string): Post | undefined {
   return posts.find((p) => p.slug === slug);
