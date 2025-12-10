@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>PID Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap">
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --panel: #ffffff;
+      --accent: #2563eb;
+      --accent-soft: #e5edff;
+      --text-main: #111827;
+      --text-soft: #6b7280;
+      --border: #e5e7eb;
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, #e5edff 0, var(--bg) 45%);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-main);
+    }
+
+    /* 상단 제목 */
+    .page-title {
+      font-size: 40px;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-align: center;
+      margin-bottom: 30px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #9ca3af, #111827, #6b7280);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
+    }
+
+    .frame {
+      width: 100%;
+      max-width: 880px;
+      margin: 0 24px 24px;
+      background: var(--panel);
+      border-radius: var(--radius);
+      box-shadow:
+        0 24px 60px rgba(15, 23, 42, 0.18),
+        0 1px 0 rgba(255, 255, 255, 0.7);
+      padding: 22px 32px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .gauge-area {
+      position: relative;
+      padding-top: 4px;
+    }
+
+    canvas {
+      width: 100%;
+      max-width: 640px;
+      display: block;
+      margin: 18px auto 0;
+    }
+
+    .segmented {
+      display: inline-flex;
+      padding: 2px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      gap: 2px;
+    }
+
+    .segmented .seg-option {
+      flex: 1;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: transparent;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      color: #6b7280;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .segmented .seg-option.active {
+      background: #111827;
+      color: #f9fafb;
+    }
+
+    .mode-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: -2px;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .sliders {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .sliders.single {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* P / I / D 라벨 + 툴팁 래퍼 */
+    .slider-label {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .slider-header {
+      font-size: 14px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      font-weight: 600;
+      cursor: help;
+    }
+
+    .slider-group.off .slider-header {
+      color: #9ca3af;
+    }
+
+    /* 엘레강스 툴팁 */
+    .tooltip {
+      position: absolute;
+      left: 50%;
+      bottom: 150%;
+      transform: translate(-50%, 6px) scale(0.96);
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.92);
+      color: #f9fafb;
+      font-size: 11px;
+      line-height: 1.5;
+      white-space: nowrap;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.42);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 20;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(148, 163, 184, 0.6);
+    }
+
+    .tooltip::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 7px 7px 0 7px;
+      border-style: solid;
+      border-color: rgba(15, 23, 42, 0.92) transparent transparent transparent;
+    }
+
+    .slider-label:hover .tooltip {
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      outline: none;
+      transition: background 0.15s ease;
+      --thumb-border: #cbd5f5;
+      --thumb-ring: #e5edff;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1px solid var(--thumb-border);
+      box-shadow: 0 0 0 4px var(--thumb-ring);
+      cursor: pointer;
+      margin-top: -5px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1px solid var(--thumb-border);
+      box-shadow: 0 0 0 4px var(--thumb-ring);
+      cursor: pointer;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 999px;
+      background: #e5e7eb;
+    }
+
+    .bottom-row {
+      margin-top: 8px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-soft);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bottom-row .readout-label {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    #energyText {
+      font-weight: 600;
+      font-size: 15px;
+      min-width: 70px;
+      text-align: right;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 840px) {
+      .frame {
+        padding: 18px 18px 14px;
+        margin: 0 12px 18px;
+      }
+      .sliders {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-title">PID 제어 시뮬레이션</div>
+
+  <div class="frame">
+    <!-- 계기판 -->
+    <div class="gauge-area">
+      <canvas id="gauge" width="640" height="280"></canvas>
+    </div>
+
+    <!-- PID / On-Off 선택 -->
+    <div class="mode-row">
+      <div class="segmented" id="modeToggle">
+        <button class="seg-option active" data-mode="pid">PID</button>
+        <button class="seg-option" data-mode="onoff">On/Off</button>
+      </div>
+    </div>
+
+    <!-- 슬라이더 -->
+    <div class="controls">
+      <!-- PID 블록 -->
+      <div class="sliders" id="pidBlock">
+        <div class="slider-group" id="pGroup">
+          <div class="slider-label">
+            <div class="slider-header">P</div>
+            <div class="tooltip">
+              현재 오차에 비례해 힘을 주는 항입니다.  
+              값이 클수록 빠르게 반응하지만 오버슈트가 커질 수 있습니다.
+            </div>
+          </div>
+          <input type="range" id="pSlider" min="0" max="1" step="0.02" value="1.0">
+        </div>
+
+        <div class="slider-group" id="iGroup">
+          <div class="slider-label">
+            <div class="slider-header">I</div>
+            <div class="tooltip">
+              시간이 지나도 남는 오차를 누적해 없애는 항입니다.  
+              너무 크면 적분이 쌓여 느린 큰 진동이 생길 수 있습니다.
+            </div>
+          </div>
+          <input type="range" id="iSlider" min="0" max="2" step="0.05" value="0.0">
+        </div>
+
+        <div class="slider-group" id="dGroup">
+          <div class="slider-label">
+            <div class="slider-header">D</div>
+            <div class="tooltip">
+              오차의 변화 속도를 보고 미리 제동을 거는 항입니다.  
+              오버슈트를 줄이는 데 도움을 주지만 노이즈에 민감합니다.
+            </div>
+          </div>
+          <input type="range" id="dSlider" min="0" max="0.5" step="0.01" value="0.0">
+        </div>
+      </div>
+
+      <!-- On/Off 토크 블록 -->
+      <div class="sliders single hidden" id="torqueBlock">
+        <div class="slider-group" id="torqueGroup">
+          <div class="slider-header">Torque</div>
+          <input type="range" id="torqueSlider" min="0" max="30" step="1" value="15">
+        </div>
+      </div>
+    </div>
+
+    <!-- 에너지 표시 -->
+    <div class="bottom-row">
+      <span class="readout-label">Energy</span>
+      <span id="energyText">+0.00</span>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gauge");
+    const ctx = canvas.getContext("2d");
+
+    const modeButtons = document.querySelectorAll("#modeToggle .seg-option");
+    const pidBlock = document.getElementById("pidBlock");
+    const torqueBlock = document.getElementById("torqueBlock");
+
+    const pSlider = document.getElementById("pSlider");
+    const iSlider = document.getElementById("iSlider");
+    const dSlider = document.getElementById("dSlider");
+    const torqueSlider = document.getElementById("torqueSlider");
+
+    const pGroup = document.getElementById("pGroup");
+    const iGroup = document.getElementById("iGroup");
+    const dGroup = document.getElementById("dGroup");
+    const torqueGroup = document.getElementById("torqueGroup");
+
+    const energyText = document.getElementById("energyText");
+
+    function clamp(val, min, max) {
+      return val < min ? min : (val > max ? max : val);
+    }
+
+    // ------ 상태 ------
+
+    let controlMode = "pid";        // "pid" 또는 "onoff"
+
+    // 스왑(왕복) 기본값
+    let setAngle = 180;             // 목표 각도 (0~180, 0=왼쪽, 180=오른쪽)
+    let sweepLow = 30;
+    let sweepHigh = 150;
+
+    const motor = {
+      position: 180,   // deg
+      velocity: 0,     // deg/s
+      J: 0.08,
+      B: 0.5,
+      Kt: 3.0
+    };
+
+    const velMax = 720;   // 최대 속도 제한 (deg/s)
+    const iMax = 400;     // 적분 한계
+    const deadband = 4;   // On/Off deadband (deg)
+    let torquePower = parseFloat(torqueSlider.value) || 6.0;
+    let currentEnergy = 0;
+
+    // 스프링 부하
+    const theta0 = 90;
+    const Kload  = 0.3;
+
+    // PID 상태
+    const pid = {
+      kp: parseFloat(pSlider.value),
+      ki: parseFloat(iSlider.value),
+      kd: parseFloat(dSlider.value),
+      integral: 0,
+      prevMeasurement: motor.position,
+      dFiltered: 0
+    };
+
+    // 시뮬레이션 시간
+    const dt = 0.01; // 10ms control step
+    let lastTimestamp = null;
+    let accumulator = 0;
+    let simTime = 0;
+
+    // 사용자가 계기판을 누르고 있는 동안 setpoint를 고정
+    let isHoldingSetpoint = false;
+
+    // ------ 슬라이더 비주얼 ------
+
+    function updateSliderVisual(groupEl, sliderEl, maxVal, hue) {
+      const v = parseFloat(sliderEl.value);
+      const ratio = maxVal === 0 ? 0 : clamp(Math.abs(v) / maxVal, 0, 1);
+
+      if (ratio === 0) {
+        groupEl.classList.add("off");
+        sliderEl.style.background = "#e5e7eb";
+        sliderEl.style.setProperty("--thumb-border", "#d1d5db");
+        sliderEl.style.setProperty("--thumb-ring", "#e5e7eb");
+      } else {
+        groupEl.classList.remove("off");
+        const sat = 15 + 70 * ratio;
+        const light = 65 - 15 * ratio;
+        const fillColor = `hsl(${hue}, ${sat}%, ${light}%)`;
+        const stop = ratio * 100;
+        sliderEl.style.background =
+          `linear-gradient(to right, ${fillColor} ${stop}%, #e5e7eb ${stop}%)`;
+
+        const ringLight = Math.max(40, light + 8);
+        const ringColor = `hsla(${hue}, ${sat}%, ${ringLight}%, 0.7)`;
+        sliderEl.style.setProperty("--thumb-border", fillColor);
+        sliderEl.style.setProperty("--thumb-ring", ringColor);
+      }
+    }
+
+    function refreshAllSliderVisuals() {
+      updateSliderVisual(pGroup, pSlider, parseFloat(pSlider.max), 220);     // P
+      updateSliderVisual(iGroup, iSlider, parseFloat(iSlider.max), 200);     // I
+      updateSliderVisual(dGroup, dSlider, parseFloat(dSlider.max), 260);     // D
+      updateSliderVisual(torqueGroup, torqueSlider, parseFloat(torqueSlider.max), 10); // Torque
+    }
+
+    pSlider.addEventListener("input", () => {
+      pid.kp = parseFloat(pSlider.value);
+      refreshAllSliderVisuals();
+    });
+
+    iSlider.addEventListener("input", () => {
+      pid.ki = parseFloat(iSlider.value);
+      refreshAllSliderVisuals();
+    });
+
+    dSlider.addEventListener("input", () => {
+      pid.kd = parseFloat(dSlider.value);
+      refreshAllSliderVisuals();
+    });
+
+    torqueSlider.addEventListener("input", () => {
+      torquePower = parseFloat(torqueSlider.value);
+      refreshAllSliderVisuals();
+    });
+
+    // ------ 모드 전환 (PID / On-Off) ------
+
+    function updateModeUI() {
+      if (controlMode === "pid") {
+        pidBlock.classList.remove("hidden");
+        torqueBlock.classList.add("hidden");
+      } else {
+        pidBlock.classList.add("hidden");
+        torqueBlock.classList.remove("hidden");
+      }
+    }
+
+    modeButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const mode = btn.dataset.mode;
+        if (mode === controlMode) return;
+        controlMode = mode;
+        modeButtons.forEach(b => b.classList.toggle("active", b === btn));
+        updateModeUI();
+      });
+    });
+
+    // ------ 에너지 색상 표시 ------
+
+    function updateEnergyDisplay(u) {
+      const mag = Math.abs(u);
+      const scale = 8;
+      const ratio = 1 - Math.exp(-mag / scale);
+
+      let color = "#9ca3af";
+      if (ratio > 0) {
+        const sat = 20 + 80 * ratio;
+        const light = 60 - 20 * ratio;
+        const hue = u >= 0 ? 0 : 220;
+        color = `hsl(${hue}, ${sat}%, ${light}%)`;
+      }
+
+      const signText = u >= 0 ? "+" + u.toFixed(2) : u.toFixed(2);
+      energyText.textContent = signText;
+      energyText.style.color = color;
+    }
+
+    // ------ 각도 → 화면상의 각도로 (0도/180도 방향 반전) ------
+
+    function toVisualAngle(angleDeg) {
+      return 180 - angleDeg;
+    }
+
+    // ------ 계기판 그리기 ------
+
+    function drawGauge(setDeg, outDeg) {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h * 0.95;
+      const r = Math.min(w * 0.42, h * 0.8);
+
+      // 배경 반원
+      ctx.save();
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, Math.PI, 0, false);
+      ctx.stroke();
+      ctx.restore();
+
+      // 눈금
+      ctx.save();
+      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = "#cbd5e1";
+      for (let labelDeg = 0; labelDeg <= 180; labelDeg += 30) {
+        const visDeg = toVisualAngle(labelDeg);
+        const rad = visDeg * Math.PI / 180;
+        const inner = r - 12;
+        const outer = r + 2;
+
+        const x1 = cx + inner * Math.cos(rad);
+        const y1 = cy - inner * Math.sin(rad);
+        const x2 = cx + outer * Math.cos(rad);
+        const y2 = cy - outer * Math.sin(rad);
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      function drawNeedleRaw(deg, length, width, color) {
+        const rad = deg * Math.PI / 180;
+        const x = cx + length * Math.cos(rad);
+        const y = cy - length * Math.sin(rad);
+        ctx.save();
+        ctx.lineWidth = width;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // SET 바늘
+      const setVis = toVisualAngle(setDeg);
+      drawNeedleRaw(setVis, r - 22, 3, "rgba(37, 99, 235, 0.9)");
+
+      // OUT 바늘
+      const outVis = toVisualAngle(outDeg);
+      drawNeedleRaw(outVis, r - 26, 4.5, "#111827");
+
+      // 중심 캡
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 6.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#111827";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ------ 캔버스 클릭 위치 → 각도 ------
+
+    function getAngleFromEvent(evtLike) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (evtLike.clientX - rect.left) * scaleX;
+      const y = (evtLike.clientY - rect.top) * scaleY;
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const cx = w / 2;
+      const cy = h * 0.95;
+
+      const dx = x - cx;
+      const dy = cy - y;
+      const rad = Math.atan2(dy, dx); // [-π, π]
+
+      if (rad < 0 || rad > Math.PI) return null;
+
+      const deg = (Math.PI - rad) * 180 / Math.PI;
+      return clamp(deg, 0, 180);
+    }
+
+    function handleSetpointDown(evtLike) {
+      const angle = getAngleFromEvent(evtLike);
+      if (angle == null) return;
+      isHoldingSetpoint = true;
+      setAngle = angle;
+    }
+
+    function handleSetpointMove(evtLike) {
+      if (!isHoldingSetpoint) return;
+      const angle = getAngleFromEvent(evtLike);
+      if (angle == null) return;
+      setAngle = angle;
+    }
+
+    function handleSetpointUp() {
+      if (!isHoldingSetpoint) return;
+      isHoldingSetpoint = false; // 손 떼면 다시 스왑
+    }
+
+    // 마우스
+    canvas.addEventListener("mousedown", (e) => {
+      handleSetpointDown(e);
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+      handleSetpointMove(e);
+    });
+
+    window.addEventListener("mouseup", () => {
+      handleSetpointUp();
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      handleSetpointUp();
+    });
+
+    // 터치
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (e.touches.length > 0) {
+        handleSetpointDown(e.touches[0]);
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      if (e.touches.length > 0) {
+        handleSetpointMove(e.touches[0]);
+      }
+    }, { passive: false });
+
+    window.addEventListener("touchend", () => {
+      handleSetpointUp();
+    });
+
+    window.addEventListener("touchcancel", () => {
+      handleSetpointUp();
+    });
+
+    // ------ SETPOINT: 스왑, 누르고 있을 때만 고정 ------
+
+    function updateSetpoint(dt) {
+      if (isHoldingSetpoint) return;
+
+      simTime += dt;
+
+      const period = 5;
+      const phase = Math.floor(simTime / period) % 2;
+      const low = Math.min(sweepLow, sweepHigh);
+      const high = Math.max(sweepLow, sweepHigh);
+      setAngle = phase === 0 ? low : high;
+    }
+
+    // ------ 제어 루프 (PID + 스프링 부하) ------
+
+    function step(dt) {
+      updateSetpoint(dt);
+
+      const angle = motor.position;
+      let u = 0;
+
+      if (controlMode === "pid") {
+        const measurement = angle;
+        const error = setAngle - measurement;
+
+        // D on measurement + 필터
+        const rawD = (measurement - pid.prevMeasurement) / dt;
+        pid.prevMeasurement = measurement;
+        pid.dFiltered = 0.9 * pid.dFiltered + 0.1 * rawD;
+        const dTerm = -pid.kd * pid.dFiltered;
+
+        let newIntegral = pid.integral + error * dt;
+        newIntegral = clamp(newIntegral, -iMax, iMax);
+        pid.integral = newIntegral;
+
+        u = pid.kp * error + pid.ki * pid.integral + dTerm;
+      } else {
+        // On/Off
+        if (angle < setAngle - deadband / 2) {
+          u = torquePower;
+        } else if (angle > setAngle + deadband / 2) {
+          u = -torquePower;
+        } else {
+          u = 0;
+        }
+      }
+
+      currentEnergy = u;
+
+      // 스프링 부하
+      const loadTorque = Kload * (angle - theta0);
+
+      const omegaDot =
+        (motor.Kt * u
+         - motor.B * motor.velocity
+         - loadTorque) / motor.J;
+
+      motor.velocity += omegaDot * dt;
+      motor.velocity = clamp(motor.velocity, -velMax, velMax);
+      motor.position += motor.velocity * dt;
+    }
+
+    function loop(timestamp) {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const frameDt = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      accumulator += frameDt;
+      if (accumulator > 0.25) accumulator = 0.25;
+
+      while (accumulator >= dt) {
+        step(dt);
+        accumulator -= dt;
+      }
+
+      drawGauge(setAngle, motor.position);
+      updateEnergyDisplay(currentEnergy);
+
+      requestAnimationFrame(loop);
+    }
+
+    // 초기 설정
+    updateModeUI();
+    refreshAllSliderVisuals();
+    pid.prevMeasurement = motor.position;
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

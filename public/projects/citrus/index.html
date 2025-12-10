@@ -1,0 +1,2075 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>귤속 계통 네트워크</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <style>
+    :root {
+      --bg: #050816;
+      --panel-bg: #020617;
+      --card-bg: #0b1120;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.12);
+      --accent-strong: #f97316;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --border: #1f2937;
+      --radius-lg: 16px;
+      --radius-sm: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+      background: radial-gradient(circle at top, #0b1220 0, #020617 45%, #000 100%);
+      color: var(--text-main);
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 14px 20px 10px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      backdrop-filter: blur(18px);
+      background: linear-gradient(
+        to bottom,
+        rgba(15, 23, 42, 0.92),
+        rgba(15, 23, 42, 0.82)
+      );
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      margin: 0 0 4px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    header h1 span.badge {
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.5);
+    }
+
+    header p {
+      margin: 0;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .content {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      padding: 8px 10px 12px;
+      gap: 8px;
+    }
+
+    #graph-container {
+      flex: 1.3;
+      min-width: 0;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      background: radial-gradient(circle at top left, #0f172a, #020617 55%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    #graph {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    #graph:active {
+      cursor: grabbing;
+    }
+
+    .info-panel {
+      flex: 0.9;
+      min-width: 260px;
+      max-width: 420px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      background: radial-gradient(circle at top right, #020617, #020617 40%, #000 100%);
+      padding: 12px 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .info-header-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      font-size: 10px;
+      padding: 2px 6px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: var(--text-muted);
+      gap: 3px;
+    }
+
+    .chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .info-sci {
+      font-size: 11px;
+      color: #9ca3af;
+      font-style: italic;
+      word-break: break-all;
+    }
+
+    .info-desc {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .info-section-title {
+      margin-top: 8px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b7280;
+    }
+
+    .ancestor-list,
+    .link-list {
+      list-style: none;
+      padding: 0;
+      margin: 4px 0 0;
+      max-height: 110px;
+      overflow: auto;
+      border-radius: var(--radius-sm);
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.65));
+      border: 1px solid rgba(31, 41, 55, 0.9);
+    }
+
+    .ancestor-list li,
+    .link-list li {
+      font-size: 11px;
+      padding: 4px 7px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.9);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .ancestor-list li:last-child,
+    .link-list li:last-child {
+      border-bottom: none;
+    }
+
+    .pill {
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.9);
+      color: #9ca3af;
+      white-space: nowrap;
+    }
+
+    .link-list a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .link-list a:hover {
+      text-decoration: underline;
+      color: #7dd3fc;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    .legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+    }
+
+    .swatch-species { background: #22c55e; }
+    .swatch-hybrid { background: #eab308; }
+    .swatch-cultivar { background: #38bdf8; }
+
+    .legend-line {
+      width: 16px;
+      height: 0;
+      border-top: 2px solid #64748b;
+    }
+
+    .legend-line.hybrid { border-top-style: solid; }
+    .legend-line.cultivar { border-top-style: dashed; }
+
+    .legend-label {
+      font-size: 10px;
+    }
+
+    .legend-note {
+      margin-top: 4px;
+      font-size: 10px;
+      color: #6b7280;
+    }
+
+    /* Graph styles */
+
+.group-bubble path {
+  fill: rgba(37, 99, 235, 0.07);
+  stroke: rgba(37, 99, 235, 0.7);
+  stroke-width: 1.2;
+  stroke-dasharray: 6 3; /* 양파망 느낌 */
+}
+
+/* 버블은 더 이상 하이라이트/디밍 안 함 */
+
+
+    .group-bubble.bubble-dim path {
+      opacity: 0.15;
+    }
+
+    .group-bubble.bubble-highlight path {
+      stroke: #f97316;
+      stroke-width: 1.8;
+      fill: rgba(251, 146, 60, 0.08);            /* 하이라이트 때 살짝 주황 */
+    }
+
+
+    .group-bubble text {
+      font-size: 11px;
+      fill: #9ca3af;
+      pointer-events: none;
+    }
+
+    .group-bubble.bubble-dim circle {
+      opacity: 0.15;
+    }
+
+    .group-bubble.bubble-highlight circle {
+      stroke: var(--accent-strong);
+      stroke-width: 1.6;
+      fill: rgba(251, 146, 60, 0.09);
+    }
+
+    .link {
+      stroke: #4b5563;
+      stroke-opacity: 0.7;
+      stroke-width: 1.1;
+    }
+
+    .link.cultivar_cross {
+      stroke-dasharray: 4 3;
+    }
+
+    .link.species_introgression {
+      stroke-dasharray: 1 4;
+      stroke-opacity: 0.5;
+    }
+
+    .link.dim {
+      stroke-opacity: 0.12;
+    }
+
+    .link.highlight {
+      stroke: var(--accent-strong);
+      stroke-width: 2;
+      stroke-opacity: 0.9;
+    }
+
+    .arrow-head {
+      fill: #64748b;
+    }
+
+    .arrow-head.highlight {
+      fill: var(--accent-strong);
+    }
+
+    .node circle {
+      stroke-width: 1.4;
+      stroke: #0f172a;
+      fill: #38bdf8;
+      fill-opacity: 0.9;
+      transition: fill 0.15s ease, stroke 0.15s ease, transform 0.1s ease;
+    }
+
+    .node.category-species circle {
+      fill: #22c55e;
+    }
+
+    .node.category-hybrid_species circle {
+      fill: #eab308;
+    }
+
+    .node.category-cultivar_group circle {
+      fill: #f97316;
+    }
+
+    .node circle:hover {
+      stroke: var(--accent);
+      transform: scale(1.04);
+    }
+
+    .node-label {
+      font-size: 10px;
+      fill: #e5e7eb;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+      pointer-events: none;
+    }
+
+    .node-label .latin {
+      font-size: 9px;
+      fill: #9ca3af;
+    }
+
+    .node.dim circle,
+    .node.dim text {
+      opacity: 0.15;
+    }
+
+    .node.highlight circle {
+      stroke: var(--accent-strong);
+      stroke-width: 2.2;
+    }
+
+    .node.highlight text {
+      font-weight: 600;
+    }
+
+    .hint {
+      margin-top: 4px;
+      font-size: 10px;
+      color: #6b7280;
+    }
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.slider-row label {
+  font-size: 11px;
+  color: #9ca3af;
+  flex: 0 0 70px;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+}
+
+.slider-row .slider-value {
+  width: 34px;
+  text-align: right;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+    @media (max-width: 900px) {
+      .content {
+        flex-direction: column;
+      }
+      .info-panel {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>
+        귤속 계통 네트워크
+      </h1>
+
+    </header>
+
+    <div class="content">
+      <div id="graph-container">
+        <svg id="graph"></svg>
+      </div>
+
+      <aside class="info-panel" id="info-panel">
+        <div class="info-header">
+          <div class="info-header-title">
+            <span id="node-ko">노드를 선택해 보세요</span>
+          </div>
+
+        </div>
+
+        <div class="info-section-title">조상 계통</div>
+        <ul class="ancestor-list" id="ancestor-list">
+          <li>아직 선택된 노드가 없습니다.</li>
+        </ul>
+
+        <div class="info-section-title">참고 자료 링크</div>
+        <ul class="link-list" id="link-list">
+          <li>그래프에서 귤류를 클릭하면 여기 링크가 나타납니다.</li>
+        </ul>
+
+
+        <div class="legend">
+          <div class="legend-item">
+            <span class="legend-swatch swatch-species"></span>
+            <span class="legend-label">기원 종</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-hybrid"></span>
+            <span class="legend-label">주요 잡종 종</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-cultivar"></span>
+            <span class="legend-label">품종·만감류</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-line hybrid"></span>
+            <span class="legend-label">: 종간 교배</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-line cultivar"></span>
+            <span class="legend-label">: 품종 간 교배</span>
+          </div>
+        </div>
+
+  <button id="toggle-bubbles" type="button">
+  계통 버블 켜기
+</button>
+<div class="slider-row">
+  <label for="link-strength">선 장력</label>
+  <input
+    type="range"
+    id="link-strength"
+    min="0.10"
+    max="1.50"
+    step="0.05"
+    value="0.10"
+  />
+  <span id="link-strength-value" class="slider-value">0.60</span>
+</div>
+<div class="slider-row">
+  <label for="group-strength">버블 장력</label>
+  <input
+    type="range"
+    id="group-strength"
+    min="0.00"
+    max="0.30"
+    step="0.01"
+    value="0.0"
+  />
+  <span id="group-strength-value" class="slider-value">0.15</span>
+</div>
+
+      </aside>
+
+    </div>
+  </div>
+
+  <script>
+    // ---- 데이터 정의 ----
+
+    const groupMeta = {
+      g_mandarin: {
+        label: "만다린·온주 계통",
+        description: "C. reticulata / C. unshiu 및 그 직계 품종"
+      },
+      g_pomelo_orange: {
+        label: "포멜로·스위트 오렌지 계통",
+        description: "C. maxima · C. × sinensis 및 자몽류"
+      },
+      g_citron_sour: {
+        label: "시트론·사워오렌지·레몬 계통",
+        description: "C. medica, C. × aurantium, C. × limon 등"
+      },
+      g_lime: {
+        label: "라임·파페다 계통",
+        description: "C. × aurantiifolia, C. × latifolia, C. micrantha 등"
+      },
+      g_yuzu: {
+        label: "유자·익창귤 계통",
+        description: "C. cavaleriei × C. reticulata 유래(C. × junos)"
+      },
+      g_korean_tangor: {
+        label: "일본·제주 만감류",
+        description: "키요미–한라봉–천혜향–황금향–레드향–진지향 계열"
+      }
+    };
+
+    const nodes = [
+      // --- 기원 종(대략) ---
+      {
+        id: "c_reticulata",
+        group: "g_mandarin",
+        category: "species",
+        nameKo: "감귤나무",
+        nameSci: "Citrus reticulata Blanco",
+        desc: "현대 감귤류 대부분의 기본 조상 중 하나인 만다린 계통.",
+        links: [
+          {
+            label: "Wikipedia – Mandarin orange",
+            url: "https://en.wikipedia.org/wiki/Mandarin_orange"
+          },
+          {
+            label: "CABI – Citrus reticulata",
+            url: "https://www.cabidigitallibrary.org/doi/full/10.1079/cabicompendium.13463"
+          }
+        ]
+      },
+      {
+        id: "c_maxima",
+        group: "g_pomelo_orange",
+        category: "species",
+        nameKo: "포멜로",
+        nameSci: "Citrus maxima (Burm.) Merr.",
+        desc: "자몽, 스위트 오렌지 등 여러 잡종의 포멜로 쪽 조상.",
+        links: [
+          {
+            label: "Wikipedia – Pomelo",
+            url: "https://en.wikipedia.org/wiki/Pomelo"
+          }
+        ]
+      },
+      {
+        id: "c_medica",
+        group: "g_citron_sour",
+        category: "species",
+        nameKo: "시트론",
+        nameSci: "Citrus medica L.",
+        desc: "레몬, 라임 계통에 강하게 기여하는 시트론.",
+        links: [
+          {
+            label: "Wikipedia – Citron (Citrus medica)",
+            url: "https://en.wikipedia.org/wiki/Citron"
+          }
+        ]
+      },
+      {
+        id: "c_unshiu",
+        group: "g_mandarin",
+        category: "species",
+        nameKo: "온주밀감",
+        nameSci: "Citrus unshiu (Satsuma mandarin)",
+        desc: "궁천조생·흥진조생 등 여러 온주 품종의 기본 종.",
+        links: [
+          {
+            label: "Wikipedia – Satsuma mandarin",
+            url: "https://en.wikipedia.org/wiki/Satsuma_mandarin"
+          }
+        ]
+      },
+      {
+        id: "c_micrantha",
+        group: "g_lime",
+        category: "species",
+        nameKo: "마이크란타",
+        nameSci: "Citrus micrantha Wester",
+        desc: "Key lime(멕시칸 라임)의 파페다 계통 조상.",
+        links: [
+          {
+            label: "Key lime – parentage",
+            url: "https://en.wikipedia.org/wiki/Key_lime"
+          }
+        ]
+      },
+      {
+        id: "c_cavaleriei",
+        group: "g_yuzu",
+        category: "species",
+        nameKo: "익창귤",
+        nameSci: "Citrus cavaleriei H.Lév. ex Cavalerie",
+        desc: "유자의 파페다 쪽 조상으로 제안되는 종.",
+        links: [
+          {
+            label: "Wikipedia – Citrus cavaleriei",
+            url: "https://en.wikipedia.org/wiki/Citrus_cavaleriei"
+          }
+        ]
+      },
+
+      // --- 주요 잡종 종 ---
+      {
+        id: "c_sinensis",
+        group: "g_pomelo_orange",
+        category: "hybrid_species",
+        nameKo: "스위트 오렌지",
+        nameSci: "Citrus × sinensis (L.) Osbeck",
+        desc: "유전체 분석에서 만다린 × 포멜로 기원의 잡종으로 밝혀진 스위트 오렌지.",
+        links: [
+          {
+            label: "Wikipedia – Citrus × sinensis",
+            url: "https://en.wikipedia.org/wiki/Citrus_%C3%97_sinensis"
+          }
+        ]
+      },
+      {
+        id: "c_aurantium",
+        group: "g_citron_sour",
+        category: "hybrid_species",
+        nameKo: "사워 오렌지",
+        nameSci: "Citrus × aurantium L.",
+        desc: "전통적으로 대목·마멀레이드에 쓰이는 쌉싸래한 잡종 오렌지.",
+        links: [
+          {
+            label: "Wikipedia – Bitter orange",
+            url: "https://en.wikipedia.org/wiki/Bitter_orange"
+          }
+        ]
+      },
+      {
+        id: "c_limon",
+        group: "g_citron_sour",
+        category: "hybrid_species",
+        nameKo: "레몬",
+        nameSci: "Citrus × limon (L.) Osbeck",
+        desc: "시트론 × 사워오렌지 계통으로 보는 레몬 그룹.",
+        links: [
+          {
+            label: "Wikipedia – Lemon",
+            url: "https://en.wikipedia.org/wiki/Lemon"
+          }
+        ]
+      },
+      {
+        id: "c_paradisi",
+        group: "g_pomelo_orange",
+        category: "hybrid_species",
+        nameKo: "자몽",
+        nameSci: "Citrus × paradisi Macfad.",
+        desc: "포멜로 × 스위트오렌지 계통의 자몽.",
+        links: [
+          {
+            label: "Wikipedia – Grapefruit",
+            url: "https://en.wikipedia.org/wiki/Grapefruit"
+          }
+        ]
+      },
+      {
+        id: "c_aurantiifolia",
+        group: "g_lime",
+        category: "hybrid_species",
+        nameKo: "멕시칸 라임",
+        nameSci: "Citrus × aurantiifolia (Christm.) Swingle",
+        desc: "시트론 × C. micrantha 계통으로 보는 라임.",
+        links: [
+          {
+            label: "Wikipedia – Key lime",
+            url: "https://en.wikipedia.org/wiki/Key_lime"
+          }
+        ]
+      },
+      {
+        id: "c_latifolia",
+        group: "g_lime",
+        category: "hybrid_species",
+        nameKo: "페르시안 라임",
+        nameSci: "Citrus × latifolia (Yu.Tanaka) Tanaka",
+        desc: "멕시칸 라임 × 레몬 계통으로 여겨지는 삼배체 라임.",
+        links: [
+          {
+            label: "Wikipedia – Persian lime",
+            url: "https://en.wikipedia.org/wiki/Persian_lime"
+          }
+        ]
+      },
+      {
+        id: "c_junos",
+        group: "g_yuzu",
+        category: "hybrid_species",
+        nameKo: "유자",
+        nameSci: "Citrus × junos Siebold ex Tanaka",
+        desc: "익창귤 × 만다린 계통으로 보는 일본·한국의 유자.",
+        links: [
+          {
+            label: "Wikipedia – Yuzu",
+            url: "https://en.wikipedia.org/wiki/Yuzu"
+          }
+        ]
+      },
+
+      // --- 만다린/온주 품종 & 탱고르 계열 ---
+      {
+        id: "ponkan",
+        group: "g_mandarin",
+        category: "cultivar_group",
+        nameKo: "폰캉",
+        nameSci: "Citrus poonensis (mandarin × pomelo)",
+        desc: "만다린 × 포멜로 유전자 기여가 있는 고당도 만다린, 한라봉 부모.",
+        links: [
+          {
+            label: "Wikipedia – Ponkan",
+            url: "https://en.wikipedia.org/wiki/Ponkan"
+          }
+        ]
+      },
+      {
+        id: "king",
+        group: "g_mandarin",
+        category: "cultivar_group",
+        nameKo: "킹 탱고르",
+        nameSci: "Citrus nobilis (tangor group)",
+        desc: "여러 탱고르 품종(Encore, Murcott 등)의 부모로 자주 등장하는 King 계통.",
+        links: [
+          {
+            label: "Tangor – 개요",
+            url: "https://en.wikipedia.org/wiki/Tangor"
+          }
+        ]
+      },
+{
+  id: "willowleaf",
+  group: "g_mandarin",
+  category: "hybrid_species",   // ✅ 잡종 종으로 올려주기
+  nameKo: "지중해감귤 (윌로우리프 만다린)",
+  nameSci: "Citrus × deliciosa 'Willowleaf'",
+  desc: "전통적인 지중해 만다린. 유전체 분석에서 만다린(C. reticulata)을 기본으로, 포멜로(C. maxima) 유전자가 수 % 정도 들어간 잡종 mandarin 계통으로 보고된다.",
+  links: [
+    {
+      label: "Citrus × deliciosa – Mediterranean mandarin",
+      url: "https://en.wikipedia.org/wiki/Citrus_%C3%97_deliciosa"
+    },
+    {
+      label: "Mediterranean mandarin의 C. maxima 기여율",
+      url: "https://fr.wikipedia.org/wiki/Citrus_deliciosa"
+    }
+  ]
+},
+
+      {
+        id: "encore",
+        group: "g_mandarin",
+        category: "cultivar_group",
+        nameKo: "앙코르",
+        nameSci: "Citrus reticulata 'Encore'",
+        desc: "King × Willowleaf 교잡으로 얻어진 만다린. Kuchinotsu No.37의 부모.",
+        links: [
+          {
+            label: "'Encore' mandarin – Wikipedia",
+            url: "https://en.wikipedia.org/wiki/%27Encore%27_mandarin"
+          },
+          {
+            label: "UCR – Encore mandarin",
+            url: "https://citrusvariety.ucr.edu/crc3569"
+          }
+        ]
+      },
+      {
+        id: "murcott",
+        group: "g_mandarin",
+        category: "cultivar_group",
+        nameKo: "마코트",
+        nameSci: "Citrus reticulata × C. × sinensis",
+        desc: "만다린 × 스위트오렌지 계통 탱고르. Setoka(천혜향) 부모.",
+        links: [
+          {
+            label: "Tangor – Murcott 언급",
+            url: "https://en.wikipedia.org/wiki/Tangor"
+          }
+        ]
+      },
+      {
+        id: "miyagawa",
+        group: "g_mandarin",
+        category: "cultivar",
+        nameKo: "궁천조생",
+        nameSci: "Citrus unshiu 'Miyagawa-wase'",
+        desc: "일본 조생 온주 대표 품종. Kiyomi/청견의 온주 쪽 부모.",
+        links: [
+          {
+            label: "FAO – Miyagawa 등 사츠마 품종",
+            url: "http://www.fao.org/4/x6732e/x6732e12.htm"
+          }
+        ]
+      },
+      {
+        id: "heungjin",
+        group: "g_mandarin",
+        category: "cultivar",
+        nameKo: "흥진조생 온주",
+        nameSci: "Citrus unshiu 'Heungjin'",
+        desc: "제주에서 진지향 교배에 사용된 만숙형 온주 품종으로 알려져 있음.",
+        links: [
+          {
+            label: "제주 감귤 품종 개요 (Kor-citrus)",
+            url: "https://www.kor-citrus.co.kr/page/kind"
+          }
+        ]
+      },
+
+      // --- 스위트 오렌지 품종 ---
+      {
+        id: "trovita",
+        group: "g_pomelo_orange",
+        category: "cultivar",
+        nameKo: "트로비타 스위트 오렌지",
+        nameSci: "Citrus × sinensis 'Trovita'",
+        desc: "키요미/청견의 오렌지 쪽 부모로 사용된 Navel 오렌지 계열 품종.",
+        links: [
+          {
+            label: "UCR – Trovita sweet orange (참조)",
+            url: "https://citrusvariety.ucr.edu/citrus/trovita"
+          }
+        ]
+      },
+
+      // --- 일본/제주 만감류 계열 ---
+      {
+        id: "cheonggyeon",
+        group: "g_korean_tangor",
+        category: "cultivar_group",
+        nameKo: "청견",
+        nameSci: "Citrus hybrid 'Kiyomi' (= C. unshiu × C. × sinensis)",
+        desc: "궁천조생(온주) × Trovita 오렌지로 육성된 일본 탱고르 Kiyomi와 동일 계통으로 보는 청견.",
+        links: [
+          {
+            label: "Kiyomi – parents (Miyagawa × Trovita)",
+            url: "https://en.wikipedia.org/wiki/Kiyomi"
+          },
+          {
+            label: "제주 감귤 품종 설명 (청견)",
+            url: "https://eunicejojo.tistory.com/entry/%ED%95%9C%EB%9D%BC%EB%B4%89%EC%B2%9C%ED%98%9C%ED%96%A5%EB%A0%88%EB%93%9C%ED%96%A5%EC%A7%84%EC%A7%80%ED%96%A5%ED%99%A9%EA%B8%88%ED%96%A5%EC%B2%AD%EA%B2%AC%ED%95%9C%EB%9D%BC%ED%96%A5-%EC%B0%A8%EC%9D%B4"
+          }
+        ]
+      },
+      {
+        id: "hallabong",
+        group: "g_korean_tangor",
+        category: "cultivar_group",
+        nameKo: "한라봉",
+        nameSci: "Citrus reticulata 'Shiranui' (Kiyomi × Ponkan)",
+        desc: "키요미(청견) × Ponkan 교잡으로 만든 일본 Shiranui(デコポン)의 제주 브랜드.",
+        links: [
+          {
+            label: "Dekopon/Shiranui – parents (Kiyomi × Ponkan)",
+            url: "https://en.wikipedia.org/wiki/Dekopon"
+          }
+        ]
+      },
+      {
+        id: "kuchinotsu37",
+        group: "g_korean_tangor",
+        category: "cultivar",
+        nameKo: "Kuchinotsu No.37",
+        nameSci: "Citrus hybrid 'Kuchinotsu No.37' (Kiyomi × Encore No.2)",
+        desc: "Kiyomi(청견) × Encore(앙코르) 교잡으로 얻어진 일본 육성 계통.",
+        links: [
+          {
+            label: "Setoka – explanation of Kuchinotsu No.37",
+            url: "https://en.wikipedia.org/wiki/Setoka"
+          },
+          {
+            label: "'Encore' mandarin – hybrid parent",
+            url: "https://en.wikipedia.org/wiki/%27Encore%27_mandarin"
+          }
+        ]
+      },
+      {
+        id: "cheonhyehyang",
+        group: "g_korean_tangor",
+        category: "cultivar_group",
+        nameKo: "천혜향",
+        nameSci: "Citrus hybrid 'Setoka' (Murcott × Kuchinotsu No.37)",
+        desc: "일본 품종 Setoka(세토카: Murcott × Kuchinotsu No.37) 계통으로, 한국에서 천혜향 상표로 판매.",
+        links: [
+          {
+            label: "Setoka – Murcott × Kuchinotsu No.37",
+            url: "https://en.wikipedia.org/wiki/Setoka"
+          },
+          {
+            label: "제주 감귤 품종 설명 (천혜향)",
+            url: "https://eunicejojo.tistory.com/entry/%ED%95%9C%EB%9D%BC%EB%B4%89%EC%B2%9C%ED%98%9C%ED%96%A5%EB%A0%88%EB%93%9C%ED%96%A5%EC%A7%84%EC%A7%80%ED%96%A5%ED%99%A9%EA%B8%88%ED%96%A5%EC%B2%AD%EA%B2%AC%ED%95%9C%EB%9D%BC%ED%96%A5-%EC%B0%A8%EC%9D%B4"
+          }
+        ]
+      },
+      {
+        id: "hwanggeumhyang",
+        group: "g_korean_tangor",
+        category: "cultivar",
+        nameKo: "황금향",
+        nameSci: "Citrus hybrid cv. 'Hwanggeumhyang' (Hallabong × Cheonhyehyang)",
+        desc: "한라봉 × 천혜향 교배로 소개되는 만감류 품종.",
+        links: [
+          {
+            label: "만감류 족보 정리 블로그 (황금향)",
+            url: "https://menel.tistory.com/entry/%EA%B7%A4-%EC%A2%85%EB%A5%98%EA%B0%80-%EC%9D%B4%EB%A0%87%EA%B2%8C-%EB%A7%8E%EC%95%84-%EB%A7%8C%EA%B0%90%EB%A5%98-%EC%A2%85%EB%A5%98%EC%99%80-%EC%A0%9C%EC%B2%A0%EC%9D%80-%EC%96%B8%EC%A0%9C%EC%9D%B8%EC%A7%80-%EC%95%8C%EC%95%84%EB%B4%85%EC%8B%9C%EB%8B%A4"
+          }
+        ]
+      },
+      {
+        id: "redhyang",
+        group: "g_korean_tangor",
+        category: "cultivar",
+        nameKo: "레드향",
+        nameSci: "Citrus hybrid cv. 'Redhyang' (Hallabong × 온주 계통)",
+        desc: "한라봉 × 온주(서지향) 계통으로 알려진 붉은 과피 만감류.",
+        links: [
+          {
+            label: "만감류 족보 정리 블로그 (레드향)",
+            url: "https://menel.tistory.com/entry/%EA%B7%A4-%EC%A2%85%EB%A5%98%EA%B0%80-%EC%9D%B4%EB%A0%87%EA%B2%8C-%EB%A7%8E%EC%95%84-%EB%A7%8C%EA%B0%90%EB%A5%98-%EC%A2%85%EB%A5%98%EC%99%80-%EC%A0%9C%EC%B2%A0%EC%9D%80-%EC%96%B8%EC%A0%9C%EC%9D%B8%EC%A7%80-%EC%95%8C%EC%95%84%EB%B4%85%EC%8B%9C%EB%8B%A4"
+          }
+        ]
+      },
+      {
+        id: "jinjihyang",
+        group: "g_korean_tangor",
+        category: "cultivar",
+        nameKo: "진지향",
+        nameSci: "Citrus hybrid cv. 'Jinjihyang' (Cheonggyeon × Heungjin early satsuma)",
+        desc: "청견(키요미) × 흥진조생 온주로 알려진 4월 출하기 만감류.",
+        links: [
+          {
+            label: "만감류 족보 정리 블로그 (진지향)",
+            url: "https://menel.tistory.com/entry/%EA%B7%A4-%EC%A2%85%EB%A5%98%EA%B0%80-%EC%9D%B4%EB%A0%87%EA%B2%8C-%EB%A7%8E%EC%95%84-%EB%A7%8C%EA%B0%90%EB%A5%98-%EC%A2%85%EB%A5%98%EC%99%80-%EC%A0%9C%EC%B2%A0%EC%9D%80-%EC%96%B8%EC%A0%9C%EC%9D%B8%EC%A7%80-%EC%95%8C%EC%95%84%EB%B4%85%EC%8B%9C%EB%8B%A4"
+          },
+          {
+            label: "제주 감귤 정보 – 진지향 언급 글",
+            url: "https://brunch.co.kr/%40pponyopapa/39"
+          }
+        ]
+      },
+      {
+        id: "dangyuja",
+        group: "g_pomelo_orange",
+        category: "cultivar_group",
+        nameKo: "당유자",
+        nameSci: "Citrus grandis (L.) Osbeck 'Dangyuja'",
+        desc: "제주 특산 포멜로형 감귤. 유전적으로는 포멜로(C. maxima) 계통 재래 품종으로, 맛과 향은 유자와 비슷하지만 족보는 포멜로 쪽으로 분류된다.",
+        links: [
+          {
+            label: "당유자 – 위키백과(한글)",
+            url: "https://ko.wikipedia.org/wiki/%EB%8B%B9%EC%9C%A0%EC%9E%90"
+          },
+          {
+            label: "Dangyuja – Wikipedia (EN)",
+            url: "https://en.wikipedia.org/wiki/Dangyuja"
+          }
+        ]
+      },
+      {
+        id: "byeonggyul",
+        group: "g_mandarin",
+        category: "species",
+        nameKo: "병귤",
+        nameSci: "Citrus platymamma Hort. ex Tanaka",
+        desc: "조선 시대 기록에도 나오는 제주 재래 만다린. 감귤나무(C. reticulata) 재배종으로, 온주와 마찬가지로 포멜로(C. maxima) DNA도 일부 가진다고 보고된다.",
+        links: [
+          {
+            label: "병귤 – 위키백과(한글)",
+            url: "https://ko.wikipedia.org/wiki/%EB%B3%91%EA%B7%A4"
+          },
+          {
+            label: "Byeonggyul – Wikipedia (FR)",
+            url: "https://fr.wikipedia.org/wiki/Byeonggyul"
+          }
+        ]
+      },
+      {
+        id: "hagyul",
+        group: "g_pomelo_orange",
+        category: "hybrid_species",
+        nameKo: "하귤 (나쓰미칸 계열)",
+        nameSci: "Citrus natsudaidai Hayata",
+        desc: "일본 여름귤 나쓰미칸 계통으로, 제주에서 재배되는 대형 산미 강한 만감류. 자연 발생한 잡종으로, 포멜로·만다린·사워오렌지 계통의 혈통이 추정되지만 정확한 부모 조합은 아직 논쟁 중이다.",
+        links: [
+          {
+            label: "하귤 사진·학명 – 블로그 글",
+            url: "https://kym5219-1.tistory.com/15299"
+          },
+          {
+            label: "Natsudaidai (summer orange) – 설명",
+            url: "https://citruscentre.co.uk/products/natsudaidai-or-natsumikan-orange"
+          }
+        ]
+      },
+      {
+        id: "hwanggeum_hagyul",
+        group: "g_pomelo_orange",
+        category: "cultivar",
+        nameKo: "황금하귤",
+        nameSci: "Citrus × natsudaidai 'Hwanggeum'",
+        desc: "1960년 제주 시험장에서 하귤 나무에서 나온 아조변이로 선발된 품종. 기존 하귤보다 당도는 높고 산 함량은 낮아, 겨울 만감류로 생과용에 적합한 품종으로 보고된다.",
+        links: [
+          {
+            label: "황금하귤 – 품종 설명 블로그",
+            url: "https://kualum.tistory.com/17049906"
+          },
+          {
+            label: "황금하귤 표준추출물 정보",
+            url: "https://herba.kr/nphub/?c=NH000247"
+          }
+        ]
+      },
+      {
+        id: "hamilgam",
+        group: "g_korean_tangor",
+        category: "cultivar",
+        nameKo: "하밀감",
+        nameSci: "Citrus hybrid 'Hamilgam' (C. unshiu × C. natsudaidai)",
+        desc: "1992년에 청도온주(C. unshiu) × 하귤(C. natsudaidai) 교배로 육성된 가공용 신품종. 온주와 하귤에 비해 총 폴리페놀·플라보노이드 함량과 항산화 활성이 높다고 보고된 만감류.",
+        links: [
+          {
+            label: "하밀감 신품종·영양 특성 논문",
+            url: "https://www.dbpia.co.kr/journal/articleDetail?nodeId=NODE07999058"
+          },
+          {
+            label: "하밀감 과피 항산화 활성 – KCI 논문",
+            url: "https://koreascience.kr/article/JAKO201402148670229.page"
+          }
+        ]
+      },
+      {
+        id: "iyegam",
+        group: "g_korean_tangor",
+        category: "hybrid_species",
+        nameKo: "이예감 (이요캉 계열)",
+        nameSci: "Citrus × iyo (Iyokan group, 'Iyegam')",
+        desc: "일본 이요캉(Citrus × iyo)을 도입해 제주에서 재배하는 만감류. Kaikoukan(포멜로 × 군낭 만다린)과 Dancy 만다린의 자연 교잡으로 추정되는 탱고르 계열로, 온주 다음으로 일본에서 많이 재배되는 품종 군이다.",
+        links: [
+          {
+            label: "이예감 – QIA 식물명 검색",
+            url: "https://www.qia.go.kr"
+          },
+          {
+            label: "Iyokan – hybrid origins (Kaikoukan × Dancy)",
+            url: "https://en.wikipedia.org/wiki/Iyokan"
+          }
+        ]
+      },
+      {
+        id: "palsak",
+        group: "g_pomelo_orange",
+        category: "hybrid_species",
+        nameKo: "팔삭 (하사쿠)",
+        nameSci: "Citrus hassaku hort. ex Tanaka",
+        desc: "제주 재래귤 가운데 하나로 꼽히는 팔삭. 일본 품종 하사쿠에 해당하며, DNA 분석에서 포멜로(C. maxima)와 쿠넨보 만다린(C. nobilis) 사이의 자연 교잡으로 밝혀진 대형 감귤이다.",
+        links: [
+          {
+            label: "Hassaku – Wikipedia",
+            url: "https://en.wikipedia.org/wiki/Hassaku"
+          },
+          {
+            label: "재래귤 5종(당유자·유자·청견·하귤·팔삭) 기능성 연구",
+            url: "https://koreascience.kr/article/CFKO202335557786827.page"
+          }
+        ]
+      },
+      // --- 전세계·일본·동남아에서 많이 언급되는 감귤류 추가 ---
+
+      {
+        id: "kumquat",
+        group: "g_mandarin",
+        category: "species",
+        nameKo: "금귤",
+        nameSci: "Citrus japonica Thunb.",
+        desc: "낑깡, 금감으로도 불리는 작은 감귤나무. 예전에는 Fortunella(금귤속)로 따로 분류했지만, 현재는 귤속(Citrus)으로 통합되는 추세.",
+        links: [
+          {
+            label: "금귤 – 위키백과(한글)",
+            url: "https://ko.wikipedia.org/wiki/%EA%B8%88%EA%B7%A4"
+          }
+        ]
+      },
+      {
+        id: "calamansi",
+        group: "g_mandarin",
+        category: "hybrid_species",
+        nameKo: "깔라만시(칼라만딘)",
+        nameSci: "Citrus × microcarpa Bunge",
+        desc: "필리핀·동남아에서 널리 쓰이는 산미 강한 감귤. 금귤(C. japonica)과 만다린(C. reticulata) 사이의 잡종으로 여겨진다.",
+        links: [
+          {
+            label: "Calamansi – Wikipedia",
+            url: "https://en.wikipedia.org/wiki/Calamansi"
+          },
+          {
+            label: "Citrofortunella microcarpa – hybrid 설명",
+            url: "https://www.gardenersworld.com/plants/x-citrofortunella-microcarpa/"
+          }
+        ]
+      },
+
+      {
+        id: "bergamot",
+        group: "g_citron_sour",
+        category: "hybrid_species",
+        nameKo: "베르가모트 오렌지",
+        nameSci: "Citrus × bergamia Risso",
+        desc: "얼 그레이 홍차 향의 원료로 유명한 감귤. 유전체 분석에서 레몬(= 시트론 × 사워오렌지)과 사워오렌지(C. × aurantium) 계통이 섞인 잡종으로 보는 견해가 우세하다.",
+        links: [
+          {
+            label: "Bergamot orange – Wikipedia",
+            url: "https://en.wikipedia.org/wiki/Bergamot_orange"
+          },
+          {
+            label: "UCR Citrus Variety – Bergamot",
+            url: "https://citrusvariety.ucr.edu/crc2881"
+          }
+        ]
+      },
+
+      {
+        id: "blood_orange",
+        group: "g_pomelo_orange",
+        category: "cultivar_group",
+        nameKo: "블러드 오렌지",
+        nameSci: "Citrus × sinensis (Blood orange group)",
+        desc: "모로, 타로코, 상귀넬로 같은 붉은 과육 스위트 오렌지 품종군. 안토시아닌 축적으로 과육이 붉게 보이는 것이 특징.",
+        links: [
+          {
+            label: "Blood orange – Wikipedia",
+            url: "https://en.wikipedia.org/wiki/Blood_orange"
+          },
+          {
+            label: "Moro blood orange – Gardenia",
+            url: "https://www.gardenia.net/plant/citrus-sinensis-moro"
+          }
+        ]
+      },
+      {
+        id: "cara_cara",
+        group: "g_pomelo_orange",
+        category: "cultivar",
+        nameKo: "카라카라 오렌지",
+        nameSci: "Citrus × sinensis 'Cara Cara Navel'",
+        desc: "베네수엘라에서 발견된 워싱턴 네이블 오렌지의 자연 돌연변이. 분홍빛 과육과 높은 당도로 유명한 네이블 오렌지 계통 품종.",
+        links: [
+          {
+            label: "Cara cara navel – Wikipedia",
+            url: "https://en.wikipedia.org/wiki/Cara_cara_navel"
+          }
+        ]
+      },
+
+      {
+        id: "sudachi",
+        group: "g_yuzu",
+        category: "hybrid_species",
+        nameKo: "스다치",
+        nameSci: "Citrus × sudachi Hort. ex Shirai",
+        desc: "도쿠시마 현 특산 향미료 감귤. 유자(C. × junos)와 만다린 계통(C. reticulata) 사이의 잡종으로 여겨지지만, 정확한 부모 조합은 아직 논쟁 중이라 여기서는 단순화해 표기.",
+        links: [
+          {
+            label: "Sudachi – Wikipedia",
+            url: "https://en.wikipedia.org/wiki/Sudachi"
+          },
+          {
+            label: "스다치 – 일본 감귤 설명(ko)",
+            url: "https://ryukoch.com/ko/gibon/sudachi-citrus-ilbon"
+          }
+        ]
+      },
+      {
+        id: "kabosu",
+        group: "g_yuzu",
+        category: "hybrid_species",
+        nameKo: "카보스",
+        nameSci: "Citrus sphaerocarpa (Hayata) Tanaka",
+        desc: "오이타 현을 대표하는 산미 강한 감귤. 유자·파페다·사워오렌지 계통이 섞인 잡종으로 추정되며, 여기서는 파페다 쪽 조상(익창귤)과 사워오렌지 사이의 잡종으로 단순화해 연결.",
+        links: [
+          {
+            label: "Kabosu – Wikipedia",
+            url: "https://en.wikipedia.org/wiki/Kabosu"
+          },
+          {
+            label: "카보스 소개(ko)",
+            url: "https://ryukoch.com/ko/gibon/kabosu-citrus-fruit-japan"
+          }
+        ]
+      },
+
+
+
+
+    ];
+
+    const links = [
+      // --- 종 수준 계통 ---
+      { source: "c_reticulata", target: "c_sinensis", kind: "species_hybrid" },
+      { source: "c_maxima", target: "c_sinensis", kind: "species_hybrid" },
+
+      { source: "c_reticulata", target: "c_aurantium", kind: "species_hybrid" },
+      { source: "c_maxima", target: "c_aurantium", kind: "species_hybrid" },
+
+      { source: "c_medica", target: "c_limon", kind: "species_hybrid" },
+      { source: "c_aurantium", target: "c_limon", kind: "species_hybrid" },
+
+      { source: "c_maxima", target: "c_paradisi", kind: "species_hybrid" },
+      { source: "c_sinensis", target: "c_paradisi", kind: "species_hybrid" },
+
+      { source: "c_medica", target: "c_aurantiifolia", kind: "species_hybrid" },
+      { source: "c_micrantha", target: "c_aurantiifolia", kind: "species_hybrid" },
+
+      { source: "c_aurantiifolia", target: "c_latifolia", kind: "species_hybrid" },
+      { source: "c_limon", target: "c_latifolia", kind: "species_hybrid" },
+
+      { source: "c_reticulata", target: "c_unshiu", kind: "species_introgression" },
+      { source: "c_maxima", target: "c_unshiu", kind: "species_introgression" },
+
+      { source: "c_reticulata", target: "c_junos", kind: "species_hybrid" },
+      { source: "c_cavaleriei", target: "c_junos", kind: "species_hybrid" },
+
+      { source: "c_reticulata", target: "ponkan", kind: "species_hybrid" },
+      { source: "c_maxima", target: "ponkan", kind: "species_hybrid" },
+// 지중해감귤(Willowleaf mandarin)의 상위 계통:
+// C. reticulata 기반에 C. maxima 유입으로 보는 연구를 반영해서 introgression으로 연결
+{ source: "c_reticulata", target: "willowleaf", kind: "species_introgression" },
+{ source: "c_maxima",     target: "willowleaf", kind: "species_introgression" },
+
+      // --- King / Murcott 계열 ---
+      { source: "c_reticulata", target: "king", kind: "species_hybrid" },
+      { source: "c_sinensis", target: "king", kind: "species_hybrid" },
+
+      { source: "c_reticulata", target: "murcott", kind: "species_hybrid" },
+      { source: "c_sinensis", target: "murcott", kind: "species_hybrid" },
+
+      { source: "king", target: "encore", kind: "cultivar_cross" },
+      { source: "willowleaf", target: "encore", kind: "cultivar_cross" },
+
+      // --- 온주 · 품종 연결 ---
+      { source: "c_unshiu", target: "miyagawa", kind: "cultivar" },
+      { source: "c_unshiu", target: "heungjin", kind: "cultivar" },
+
+      { source: "c_sinensis", target: "trovita", kind: "cultivar" },
+
+      // --- 일본·제주 만감류 계통 ---
+      { source: "miyagawa", target: "cheonggyeon", kind: "cultivar_cross" },
+      { source: "trovita", target: "cheonggyeon", kind: "cultivar_cross" },
+
+      { source: "cheonggyeon", target: "hallabong", kind: "cultivar_cross" },
+      { source: "ponkan", target: "hallabong", kind: "cultivar_cross" },
+
+      { source: "cheonggyeon", target: "kuchinotsu37", kind: "cultivar_cross" },
+      { source: "encore", target: "kuchinotsu37", kind: "cultivar_cross" },
+
+      { source: "kuchinotsu37", target: "cheonhyehyang", kind: "cultivar_cross" },
+      { source: "murcott", target: "cheonhyehyang", kind: "cultivar_cross" },
+
+      { source: "hallabong", target: "hwanggeumhyang", kind: "cultivar_cross" },
+      { source: "cheonhyehyang", target: "hwanggeumhyang", kind: "cultivar_cross" },
+
+      { source: "hallabong", target: "redhyang", kind: "cultivar_cross" },
+      { source: "c_unshiu", target: "redhyang", kind: "cultivar_cross" },
+
+      { source: "cheonggyeon", target: "jinjihyang", kind: "cultivar_cross" },
+      { source: "heungjin", target: "jinjihyang", kind: "cultivar_cross" },
+      // --- 제주·한국 정서 계통 추가 ---
+
+      // 당유자: 포멜로 재배종으로 연결
+      { source: "c_maxima", target: "dangyuja", kind: "cultivar" },
+
+      // 병귤: 만다린 재배종 + 포멜로 DNA 일부 포함 → 온주와 비슷하게 introgression로 표기
+      { source: "c_reticulata", target: "byeonggyul", kind: "species_introgression" },
+      { source: "c_maxima",   target: "byeonggyul", kind: "species_introgression" },
+
+      // 하귤 계통: 하귤 → 황금하귤(아조변이), 하귤 ↔ 하밀감 교잡
+      { source: "hagyul",         target: "hwanggeum_hagyul", kind: "cultivar" },
+      { source: "c_unshiu",       target: "hamilgam",         kind: "cultivar_cross" },
+      { source: "hagyul",         target: "hamilgam",         kind: "cultivar_cross" },
+
+      // 이예감(이요캉 계열): 기본 조상은 만다린 + 포멜로 계통
+      { source: "c_reticulata",   target: "iyegam",           kind: "species_hybrid" },
+      { source: "c_maxima",       target: "iyegam",           kind: "species_hybrid" },
+
+      // 팔삭(하사쿠): 포멜로 × 쿠넨보 만다린 자연 잡종
+      { source: "c_maxima",       target: "palsak",           kind: "species_hybrid" },
+      { source: "c_reticulata",   target: "palsak",           kind: "species_hybrid" },
+      // --- 금귤·깔라만시 계열 ---
+      { source: "kumquat",       target: "calamansi",   kind: "species_hybrid" },
+      { source: "c_reticulata",  target: "calamansi",   kind: "species_hybrid" },
+
+      // --- 베르가모트 오렌지: 레몬·사워오렌지 계통 잡종으로 단순화 ---
+      { source: "c_limon",       target: "bergamot",    kind: "species_hybrid" },
+      { source: "c_aurantium",   target: "bergamot",    kind: "species_hybrid" },
+
+      // --- 블러드 오렌지·카라카라: 스위트 오렌지의 품종 계열 ---
+      { source: "c_sinensis",    target: "blood_orange", kind: "cultivar" },
+      { source: "c_sinensis",    target: "cara_cara",    kind: "cultivar" },
+
+      // --- 스다치: 유자 × 만다린 계통으로 단순화 ---
+      { source: "c_junos",       target: "sudachi",     kind: "species_hybrid" },
+      { source: "c_reticulata",  target: "sudachi",     kind: "species_hybrid" },
+
+      // --- 카보스: 파페다(익창귤) × 사워오렌지 계통으로 단순화 ---
+      { source: "c_cavaleriei",  target: "kabosu",      kind: "species_hybrid" },
+      { source: "c_aurantium",   target: "kabosu",      kind: "species_hybrid" }
+
+      // 시쿠와사(shikuwasa), 카피르 라임(kaffir_lime)은
+      // 야생/기원 종 취급이라, 지금은 상위 부모 링크 없이
+      // 'species' 루트로 그냥 떠 있게 놔두는 편이 안전할 것 같아서 링크는 안 달았다.
+
+
+    ];
+
+    // ---- D3 세팅 ----
+
+    const container = document.getElementById("graph-container");
+    const svg = d3.select("#graph");
+let ancestorDepthMap = null;   // 선택된 노드의 조상 깊이 정보
+let ancestorLiftStrength = 0.20; // 위로 끌어올리는 힘 세기 (나중에 숫자 바꿔도 됨)
+let bubblesEnabled = false;       // ✅ 버블/막 표시 여부
+    const defs = svg.append("defs");
+
+    // ✅ 줌/팬 대상이 되는 최상위 그룹
+    const viewport = svg.append("g").attr("class", "viewport");
+    function getSize() {
+      const w = container.clientWidth || 600;
+      const h = container.clientHeight || 500;
+      return { w, h };
+    }
+let linkStrengthBase = 0.1; // 선 장력 기본값
+let groupStrength = 0;   // 버블(그룹) 장력 기본값
+
+    let { w: width, h: height } = getSize();
+    svg.attr("viewBox", [0, 0, width, height].join(" "));
+
+    defs.append("marker")
+      .attr("id", "arrow-head")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 16)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("class", "arrow-head")
+      .attr("d", "M0,-5L10,0L0,5");
+
+    const bubbleLayer = viewport.append("g").attr("class", "bubble-layer");
+    const linkLayer = viewport.append("g").attr("class", "link-layer");
+    const nodeLayer = viewport.append("g").attr("class", "node-layer");
+
+    const groupArray = Array.from(
+      d3.group(nodes, d => d.group),
+      ([id, members]) => ({
+        id,
+        members,
+        label: groupMeta[id]?.label || id
+      })
+    );
+
+    const bubble = bubbleLayer
+      .selectAll("g.group-bubble")
+      .data(groupArray)
+      .enter()
+      .append("g")
+      .attr("class", "group-bubble");
+
+    // ✅ 양파망 모양을 그릴 path
+    const bubblePath = bubble
+      .append("path");
+
+
+
+    // ✅ 부드러운 폐곡선(line generator)
+    const hullLine = d3.line()
+      .curve(d3.curveCatmullRomClosed);
+
+
+    const link = linkLayer
+      .selectAll("line")
+      .data(links)
+      .enter()
+      .append("line")
+      .attr("class", d => "link " + (d.kind || ""))
+      .attr("marker-end", "url(#arrow-head)");
+
+    const radiusFor = d =>
+      d.category === "species" ? 18 :
+      d.category === "hybrid_species" ? 15 :
+      d.category === "cultivar_group" ? 13 : 11;
+
+    const node = nodeLayer
+      .selectAll("g.node")
+      .data(nodes)
+      .enter()
+      .append("g")
+      .attr("class", d => `node category-${d.category}`)
+      .call(
+        d3.drag()
+          .on("start", dragStarted)
+          .on("drag", dragged)
+          .on("end", dragEnded)
+      );
+
+    node.append("circle")
+      .attr("r", d => radiusFor(d));
+
+    const nodeLabel = node.append("text")
+      .attr("class", "node-label")
+      .attr("dy", d => -radiusFor(d) - 4)
+      .attr("text-anchor", "middle");
+
+    nodeLabel.append("tspan")
+      .attr("x", 0)
+      .text(d => d.nameKo);
+
+    // ✅ 줌/팬 설정
+    const zoom = d3.zoom()
+      .scaleExtent([0.3, 3])    // 최소/최대 확대 배율
+      .on("zoom", (event) => {
+        viewport.attr("transform", event.transform);  // viewport 전체 변환
+      });
+
+    // ✅ SVG에 줌 붙이기
+    svg.call(zoom);
+const linkForce = d3
+  .forceLink(links)
+  .id((d) => d.id)
+  .distance((d) => {
+    if (d.kind === "species_hybrid") return 120;
+    if (d.kind === "species_introgression") return 150;
+    return 95; // cultivar / cultivar_cross
+  })
+  .strength((d) => {
+    const kind = d.kind || "";
+    if (kind === "species_hybrid") return linkStrengthBase * 1.1;
+    if (kind === "species_introgression") return linkStrengthBase * 0.6;
+    return linkStrengthBase;
+  });
+
+// ✅ 그룹 내부를 조이는 "막" 역할을 하는 force
+//    groupStrength 슬라이더 값이 곧 막의 탄성 계수
+function groupForce(alpha) {
+  const k = groupStrength; // 사이드 패널 "버블 장력" 슬라이더
+  if (k <= 0) return;
+
+  // 1) 그룹별 중심과 멤버 수 계산
+  const centers = new Map();
+  groupArray.forEach((g) => {
+    const members = g.members.filter(
+      (n) => !isNaN(n.x) && !isNaN(n.y)
+    );
+    if (!members.length) return;
+    const cx = d3.mean(members, (n) => n.x);
+    const cy = d3.mean(members, (n) => n.y);
+    centers.set(g.id, { cx, cy, count: members.length });
+  });
+
+  // 2) 각 노드를 자신의 그룹 중심 쪽으로 살짝 끌어당김
+  //    (작은 그룹일수록 더 세게 → 한 줄로 퍼지지 않고 뭉치게)
+  nodes.forEach((n) => {
+    const info = centers.get(n.group);
+    if (!info) return;
+
+    // 멤버가 3개 이하인 그룹은 막을 더 세게 (시트론·사워·레몬, 익창귤·유자 같은 케이스)
+    const localK =
+      info.count <= 2 ? k * 2.2 :
+      info.count <= 4 ? k * 1.6 :
+      k;
+
+    n.vx += (info.cx - n.x) * localK * alpha;
+    n.vy += (info.cy - n.y) * localK * alpha;
+  });
+}
+
+// ✅ 버블(그룹)끼리 서로 겹치지 않도록 반발하는 force
+function bubbleCollisionForce(alpha) {
+  const paddingBetweenBubbles = 40; // 버블끼리 최소 간격
+  const k = 0.12;                   // 반발력 세기 (0.08~0.2 사이 튜닝)
+
+  // 1) 그룹별 중심과 대략적인 반지름 계산
+  const geom = groupArray.map((g) => {
+    const members = g.members.filter(
+      (n) => !isNaN(n.x) && !isNaN(n.y)
+    );
+    if (!members.length) {
+      return {
+        g,
+        cx: width / 2,
+        cy: height / 2,
+        r: 60
+      };
+    }
+    const cx = d3.mean(members, (n) => n.x);
+    const cy = d3.mean(members, (n) => n.y);
+const baseR =
+  d3.max(members, (n) => Math.hypot(n.x - cx, n.y - cy)) + 30;
+
+// 멤버가 적은 그룹은 더 작은 최소 반지름
+const minR = members.length <= 3 ? 35 : 60;
+const r = Math.max(baseR, minR);
+
+return { g, cx, cy, r, count: members.length };
+
+  });
+
+  // 2) 그룹 쌍마다 너무 가까우면 양쪽으로 밀어냄
+  for (let i = 0; i < geom.length; i++) {
+    for (let j = i + 1; j < geom.length; j++) {
+      const a = geom[i];
+      const b = geom[j];
+      if (!a || !b) continue;
+
+      let dx = b.cx - a.cx;
+      let dy = b.cy - a.cy;
+      let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      const minDist = a.r + b.r + paddingBetweenBubbles;
+      if (dist >= minDist) continue; // 충분히 떨어져 있으면 아무것도 안 함
+
+      const overlap = (minDist - dist) / dist;
+      const fx = dx * overlap * k * alpha;
+      const fy = dy * overlap * k * alpha;
+
+const n1 = a.g.members.length || 1;
+const n2 = b.g.members.length || 1;
+const total = n1 + n2;
+
+// 두 그룹 중심이 비슷하게 움직이도록,
+// 각 노드당 동일한 크기의 힘을 나눠 줌
+a.g.members.forEach((n) => {
+  n.vx -= fx / total;
+  n.vy -= fy / total;
+});
+b.g.members.forEach((n) => {
+  n.vx += fx / total;
+  n.vy += fy / total;
+});
+
+
+    }
+  }
+}
+
+// ✅ 카테고리(종/잡종종/품종)에 따라 선호하는 높이를 다르게 하는 force
+function verticalCategoryForce(alpha) {
+  const k = 0.08; // 힘의 세기 (0.05~0.15 사이에서 튜닝)
+
+  nodes.forEach((n) => {
+    let targetY;
+
+    // 가장 "조상스러운" 애들은 위로
+    if (n.category === "species") {
+      // 시트론, 만다린, 포멜로, 파페다, 익창귤 등
+      targetY = height * 0.12;   // 화면 맨 위쪽 근처
+    } else if (n.category === "hybrid_species") {
+      // 스위트오렌지, 사워오렌지, 레몬, 유자 등
+      targetY = height * 0.22;
+    } else if (n.category === "cultivar_group") {
+      // 한라봉, 청견, 천혜향 같은 "품종군"
+      targetY = height * 0.50;
+    } else {
+      // 보통 품종 (궁천조생, 흥진, 트로비타, 일반 만감류 등)
+      targetY = height * 0.70;
+    }
+
+    // 너무 화면 밖으로 튀어나가지 않게 클램프
+    const margin = 40;
+    targetY = Math.max(margin, Math.min(height - margin, targetY));
+
+    // y 방향 속도에만 살짝 영향
+    n.vy += (targetY - n.y) * k * alpha;
+  });
+}
+
+const simulation = d3
+  .forceSimulation(nodes)
+  .force("link", linkForce)
+  .force("charge", d3.forceManyBody().strength(-220))
+  .force("center", d3.forceCenter(width / 2, height / 2))
+  .force(
+    "collision",
+    d3.forceCollide().radius((d) => radiusFor(d) + 12)
+  )
+  .force("group", groupForce)
+  .force("bubbleCollision", bubbleCollisionForce)  // ✅ 추가
+  .force("ancestry", ancestryForce)
+  .force("categoryY", verticalCategoryForce)
+  .on("tick", ticked);
+
+
+
+    const parentsById = new Map();
+    links.forEach(l => {
+      const child = typeof l.target === "object" ? l.target.id : l.target;
+      const parent = typeof l.source === "object" ? l.source.id : l.source;
+      if (!parentsById.has(child)) parentsById.set(child, new Set());
+      parentsById.get(child).add(parent);
+    });
+
+function ancestryForce(alpha) {
+  // 선택된 노드 없으면 아무 일도 안 함
+  if (!ancestorDepthMap) return;
+
+  const lift = ancestorLiftStrength;
+
+  nodes.forEach((n) => {
+    const depth = ancestorDepthMap.get(n.id);
+    // 선택된 노드 자신(depth 0)은 움직이지 않게, 조상들만 올리기
+    if (depth == null || depth <= 0) return;
+
+    // 깊을수록 더 위로 (y값이 작아지도록 targetY 설정)
+    // 필요하면 숫자 튜닝: 한 세대당 얼마나 위로 올릴지
+    const centerY = height * 0.25;      // 기준 높이 (대략 가운데 아래쪽)
+    const step = height * 0.18;         // 세대당 위로 당기는 간격
+    let targetY = centerY - depth * step;
+
+    // 너무 화면 밖으로 안 나가도록 클램프
+    const margin = 40;
+    targetY = Math.max(margin, Math.min(height - margin, targetY));
+
+    // y 방향으로만 살짝 당기는 힘 추가
+    n.vy += (targetY - n.y) * lift * alpha;
+  });
+}
+
+
+
+    let pinnedNodeId = null;
+node
+  .on("mouseover", (event, d) => {
+    if (pinnedNodeId) return;
+    applyHighlight(d, false);     // hover는 highlight만, 힘은 안 건드림
+  })
+  .on("mouseout", () => {
+    if (pinnedNodeId) return;
+    clearHighlight();
+  })
+  .on("click", (event, d) => {
+    event.stopPropagation();
+
+    if (pinnedNodeId === d.id) {
+      // ✅ 선택 해제: 조상 끌어올리는 힘 끄기
+      pinnedNodeId = null;
+      ancestorDepthMap = null;
+      clearHighlight();
+      clearPanel();
+      simulation.alpha(0.4).restart();
+    } else {
+      // ✅ 새로 선택: 조상 depth 계산하고 위로 올리는 힘 켜기
+      pinnedNodeId = d.id;
+      ancestorDepthMap = collectAncestorDepth(d.id);
+      applyHighlight(d, true);   // highlight + 패널 갱신
+      simulation.alpha(0.7).restart();
+    }
+  });
+
+svg.on("click", () => {
+  pinnedNodeId = null;
+  ancestorDepthMap = null;   // ✅ 추가
+  clearHighlight();
+  clearPanel();
+  simulation.alpha(0.4).restart();
+});
+
+
+    // ---- 함수들 ----
+// 클릭한 노드 기준으로 조상들의 "세대 거리" 계산
+// depth = 1 (부모), 2 (조부모), ... 형태로 올라감
+function collectAncestorDepth(rootId) {
+  const depthMap = new Map();
+  const queue = [{ id: rootId, depth: 0 }];
+
+  while (queue.length) {
+    const { id, depth } = queue.shift();
+    const parents = parentsById.get(id);
+    if (!parents) continue;
+
+    parents.forEach((pId) => {
+      // 이미 더 짧은 거리로 방문한 적 있으면 스킵
+      if (depthMap.has(pId)) return;
+      const nextDepth = depth + 1;
+      depthMap.set(pId, nextDepth);
+      queue.push({ id: pId, depth: nextDepth });
+    });
+  }
+
+  return depthMap;
+}
+
+    function collectAncestors(id) {
+      const result = new Set();
+      const stack = [id];
+      while (stack.length) {
+        const current = stack.pop();
+        const parents = parentsById.get(current);
+        if (!parents) continue;
+        for (const p of parents) {
+          if (!result.has(p)) {
+            result.add(p);
+            stack.push(p);
+          }
+        }
+      }
+      return result;
+    }
+
+    function applyHighlight(nodeData, updatePanel = false) {
+      const ancestors = collectAncestors(nodeData.id);
+      const highlightNodes = new Set(ancestors);
+      highlightNodes.add(nodeData.id);
+
+      node.classed("highlight", d => highlightNodes.has(d.id))
+        .classed("dim", d => !highlightNodes.has(d.id));
+
+      link.classed("highlight", l => {
+        const child = l.target.id || l.target;
+        return highlightNodes.has(child);
+      }).classed("dim", l => {
+        const child = l.target.id || l.target;
+        return !highlightNodes.has(child);
+      });
+
+
+
+      if (updatePanel) {
+        updateInfoPanel(nodeData, ancestors);
+      }
+    }
+
+    function clearHighlight() {
+      node.classed("highlight", false).classed("dim", false);
+      link.classed("highlight", false).classed("dim", false);
+    }
+
+    function dragStarted(event, d) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    }
+
+    function dragged(event, d) {
+      d.fx = event.x;
+      d.fy = event.y;
+    }
+
+    function dragEnded(event, d) {
+      if (!event.active) simulation.alphaTarget(0);
+      d.fx = null;
+      d.fy = null;
+    }
+function ticked() {
+  link
+    .attr("x1", d => d.source.x)
+    .attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x)
+    .attr("y2", d => d.target.y);
+
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+
+  // --- 그룹별 헐 + 라벨 위치 계산 ---
+  // ✅ 버블이 꺼져 있으면 헐 계산/그리기 전부 스킵
+  if (!bubblesEnabled) {
+    bubblePath.attr("d", null); // 막 지우기
+    return;
+  }
+
+  groupArray.forEach((g) => {
+    const pts = g.members
+      .filter((n) => !isNaN(n.x) && !isNaN(n.y))
+      .map((n) => [n.x, n.y]);
+
+    if (!pts.length) {
+      g.hullPath = null;
+      return;
+    }
+
+    const cx = d3.mean(pts, (p) => p[0]);
+    const cy = d3.mean(pts, (p) => p[1]);
+    g.cx = cx;
+    g.cy = cy;
+
+    const padding = 22; // 막 두께/여유 공간
+
+    let outline; // 막의 외곽선 점들
+
+    if (pts.length === 1) {
+      // ✅ 노드 하나짜리 그룹: 작은 원막으로 감싸기
+      const baseR = radiusFor(members[0]) + padding;
+      const steps = 16;
+      outline = d3.range(steps).map((i) => {
+        const t = (2 * Math.PI * i) / steps;
+        return [cx + baseR * Math.cos(t), cy + baseR * Math.sin(t)];
+      });
+
+    } else if (pts.length === 2) {
+      // ✅ 노드 두 개짜리 그룹: 두 점을 감싸는 타원형 "캡슐" 막
+      const [x1, y1] = pts[0];
+      const [x2, y2] = pts[1];
+
+      const mx = (x1 + x2) / 2;
+      const my = (y1 + y2) / 2;
+      const vx = x2 - x1;
+      const vy = y2 - y1;
+      const dist = Math.sqrt(vx * vx + vy * vy) || 1;
+
+      // 두 점을 이은 선에 수직인 방향 벡터
+      const nx = -vy / dist;
+      const ny = vx / dist;
+
+      const halfLen = dist / 2 + padding;
+      const r = padding + 16; // 막 두께
+
+      // 네 꼭짓점 비슷하게 잡아서 CatmullRom으로 부드럽게 연결
+      outline = [
+        [mx + vx / 2 + nx * r, my + vy / 2 + ny * r],
+        [mx - vx / 2 + nx * r, my - vy / 2 + ny * r],
+        [mx - vx / 2 - nx * r, my - vy / 2 - ny * r],
+        [mx + vx / 2 - nx * r, my + vy / 2 - ny * r]
+      ];
+
+    } else {
+      // ✅ 세 개 이상: convex hull + 바깥으로 팽창 (양파망 느낌)
+      const rawHull = d3.polygonHull(pts);
+      if (!rawHull) {
+        g.hullPath = null;
+        return;
+      }
+
+      outline = rawHull.map(([x, y]) => {
+        const dx = x - cx;
+        const dy = y - cy;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        return [
+          x + (dx / len) * padding,
+          y + (dy / len) * padding
+        ];
+      });
+    }
+
+    g.hullPath = hullLine(outline);
+  });
+
+  bubblePath.attr("d", (d) => (d.hullPath ? d.hullPath : null));
+
+
+}
+
+
+    function updateInfoPanel(nodeData, ancestorIds) {
+      const koEl = document.getElementById("node-ko");
+      const sciEl = document.getElementById("node-sci");
+      const descEl = document.getElementById("node-desc");
+      const ancList = document.getElementById("ancestor-list");
+      const linkList = document.getElementById("link-list");
+
+      koEl.textContent = nodeData.nameKo;
+      sciEl.textContent = nodeData.nameSci;
+      descEl.textContent = nodeData.desc || "";
+
+      // 조상 요약: 최상위 기원 종들만 추려서 표시
+      const ancestorNodes = nodes.filter(n => ancestorIds.has(n.id));
+      const rootSpecies = ancestorNodes.filter(
+        n => n.category === "species" || n.category === "hybrid_species"
+      );
+
+      ancList.innerHTML = "";
+      if (!ancestorNodes.length) {
+        const li = document.createElement("li");
+        li.textContent = "이 노드에 연결된 상위 계통 정보가 아직 없습니다.";
+        ancList.appendChild(li);
+      } else {
+        if (rootSpecies.length) {
+          rootSpecies.forEach(s => {
+            const li = document.createElement("li");
+            const pill = document.createElement("span");
+            pill.className = "pill";
+            pill.textContent =
+              s.category === "species" ? "기원 종" : "주요 잡종 종";
+            const text = document.createElement("span");
+            text.textContent = ` ${s.nameKo} – ${s.nameSci}`;
+            li.appendChild(pill);
+            li.appendChild(text);
+            ancList.appendChild(li);
+          });
+        }
+
+        const rest = ancestorNodes.filter(
+          n => !rootSpecies.includes(n)
+        );
+        if (rest.length) {
+          const divider = document.createElement("li");
+          divider.style.background = "rgba(15,23,42,0.9)";
+          divider.style.color = "#9ca3af";
+          divider.textContent = "· 중간 잡종/품종 계통";
+          ancList.appendChild(divider);
+
+          rest.forEach(n => {
+            const li = document.createElement("li");
+            const pill = document.createElement("span");
+            pill.className = "pill";
+            pill.textContent = n.category === "cultivar_group" ? "품종군" : "품종";
+            const text = document.createElement("span");
+            text.textContent = ` ${n.nameKo}`;
+            li.appendChild(pill);
+            li.appendChild(text);
+            ancList.appendChild(li);
+          });
+        }
+      }
+
+      // 링크 목록
+      linkList.innerHTML = "";
+      const linksArr = nodeData.links || [];
+      if (!linksArr.length) {
+        const li = document.createElement("li");
+        li.textContent = "이 노드에 아직 직접 연결한 참고 링크가 없습니다.";
+        linkList.appendChild(li);
+      } else {
+        linksArr.forEach(l => {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.href = l.url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = l.label;
+          li.appendChild(a);
+          linkList.appendChild(li);
+        });
+      }
+    }
+
+    function clearPanel() {
+      const koEl = document.getElementById("node-ko");
+      const sciEl = document.getElementById("node-sci");
+      const descEl = document.getElementById("node-desc");
+      const ancList = document.getElementById("ancestor-list");
+      const linkList = document.getElementById("link-list");
+
+      koEl.textContent = "노드를 선택해 보세요";
+      sciEl.textContent = "Citrus 계통 정리 – 부분 데이터(초안)";
+      descEl.innerHTML =
+        "왼쪽 그래프에서 한 귤류를 <b>클릭</b>하면 이 패널에 계통 요약과 참고 링크가 나타납니다.";
+
+      ancList.innerHTML = "";
+      const a = document.createElement("li");
+      a.textContent = "아직 선택된 노드가 없습니다.";
+      ancList.appendChild(a);
+
+      linkList.innerHTML = "";
+      const b = document.createElement("li");
+      b.textContent = "그래프에서 귤류를 클릭하면 여기 링크가 나타납니다.";
+      linkList.appendChild(b);
+    }
+// ---- 장력 슬라이더 연결 ----
+const linkSlider = document.getElementById("link-strength");
+const linkValue = document.getElementById("link-strength-value");
+const groupSlider = document.getElementById("group-strength");
+const groupValue = document.getElementById("group-strength-value");
+
+if (linkSlider && linkValue) {
+  linkSlider.addEventListener("input", (e) => {
+    linkStrengthBase = parseFloat(e.target.value);
+    linkValue.textContent = linkStrengthBase.toFixed(2);
+
+    linkForce.strength((d) => {
+      const kind = d.kind || "";
+      if (kind === "species_hybrid") return linkStrengthBase * 1.1;
+      if (kind === "species_introgression") return linkStrengthBase * 0.6;
+      return linkStrengthBase;
+    });
+
+    simulation.alpha(0.7).restart();
+  });
+}
+
+if (groupSlider && groupValue) {
+  groupSlider.addEventListener("input", (e) => {
+    groupStrength = parseFloat(e.target.value);
+    groupValue.textContent = groupStrength.toFixed(2);
+    simulation.alpha(0.7).restart();
+  });
+}
+
+// 초기 표시값 맞춰두기
+if (linkValue) linkValue.textContent = linkStrengthBase.toFixed(2);
+if (groupValue) groupValue.textContent = groupStrength.toFixed(2);
+
+window.addEventListener("resize", () => {
+  const size = getSize();
+  width = size.w;
+  height = size.h;
+  svg.attr("viewBox", [0, 0, width, height].join(" "));
+  simulation.force("center", d3.forceCenter(width / 2, height / 2));
+  simulation.alpha(0.4).restart();
+});
+const toggleButton = document.getElementById("toggle-bubbles");
+
+if (toggleButton) {
+  toggleButton.addEventListener("click", () => {
+    bubblesEnabled = !bubblesEnabled;
+
+    if (bubblesEnabled) {
+      // ✅ 버블 켜기
+      toggleButton.textContent = "버블 끄기";
+
+      // 레이어 다시 보이게
+      bubbleLayer.attr("display", null);
+
+      // 버블 관련 force 복원
+      simulation.force("group", groupForce);
+      simulation.force("bubbleCollision", bubbleCollisionForce);
+
+      // 버블 장력 슬라이더 다시 활성화
+      if (groupSlider) groupSlider.disabled = false;
+    } else {
+      // ✅ 버블 끄기
+      toggleButton.textContent = "버블 켜기";
+
+      // 막 레이어 숨기기
+      bubbleLayer.attr("display", "none");
+
+      // 버블 관련 force 제거
+      simulation.force("group", null);
+      simulation.force("bubbleCollision", null);
+
+      // 버블 장력 슬라이더 비활성화
+      if (groupSlider) groupSlider.disabled = true;
+    }
+
+    // 레이아웃 재정렬
+    simulation.alpha(0.7).restart();
+  });
+}
+
+  </script>
+</body>
+</html>
