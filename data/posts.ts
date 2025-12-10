@@ -42,7 +42,7 @@ export const posts: Post[] = [
     title: "블로그 안에서 JS 코드 실행하기 (Playground 초안)",
     date: "2025-11-22",
     folder: "javascript",
-    series: "counter-demo3",
+    series: "test",
     tag: "playground",
     description:  
       "Next.js와 간단한 컴포넌트를 이용해서, 블로그 글 안에서 바로 JS 코드를 실행해보는 플레이그라운드를 만듭니다.",
@@ -74,7 +74,7 @@ export const posts: Post[] = [
     title: "안녕하세요",
     date: "2002-03-30",
     folder: "javascript",
-    series: "counter-demo1",
+    series: "test",
     tag: "note",
     description: "설명 없음",
     content: "오늘은 밥을 먹었따",
@@ -84,7 +84,7 @@ export const posts: Post[] = [
     title: "HTML 카운터 데모를 블로그 글에 임베드해보기",
     date: "2025-11-26",
     folder: "javascript",
-    series: "counter-demo",          // ★ 프로젝트/시리즈 ID
+    series: "test",
     tag: "demo",
     description: "public/projects 안에 있는 HTML 프로젝트를 블로그 글 안에 iframe으로 임베드하고, 새 탭으로 바로 실행하는 방법을 정리합니다.",
     content: "이 글에서는 public/projects 폴더 안에 있는 HTML 프로젝트를 블로그 글 안에 직접 임베드하는 방법을 정리합니다.\n\n먼저, public/projects/counter-demo/index.html 파일을 만들어 간단한 카운터 예제를 작성합니다. 그런 다음, data/posts.ts에서 이 글에 projects: [\"counter-demo\"]를 연결하면 됩니다.\n\n아래 박스에서 카운터 데모를 바로 실행해 볼 수 있습니다. 프로젝트 전체 화면이 보고 싶다면 \"새 탭에서 실행\" 버튼을 눌러 확인할 수 있습니다.\n",
