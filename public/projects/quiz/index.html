@@ -430,15 +430,29 @@
 
     .inputs input[type="text"] {
       font-size: 0.9rem;
-      border-radius: 0.7rem;
+      border-radius: 0.8rem;
+      border: 1px solid var(--border-strong);
+      padding: 0.4rem 0.7rem;
+      min-height: 2.2rem;
+      background: #f9fafb;
+    }
+
+    /* ★ ANY형용 textarea */
+    .inputs textarea {
+      font-size: 0.9rem;
+      border-radius: 0.8rem;
       border: 1px solid var(--border-strong);
       padding: 0.45rem 0.7rem;
-      min-height: 2.4rem;
-      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 4.4rem;
       background: #f9fafb;
-      color: #111827;
-      outline: none;
+      resize: vertical;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
+
+    .inputs input[type="text"]::placeholder {
+      color: #9ca3af;
+    }
+
 
 
     .inputs input[type="text"]:focus {
@@ -1118,6 +1132,7 @@ function getOxCorrectText(q) {
           const leftTrimmed = line.replace(/^\s+/, "");
 
           // 새 문제 시작: #제목 또는 #제목:: OX
+          // 새 문제 시작: #제목 또는 #제목:: OX
           if (leftTrimmed.startsWith("#")) {
             // 이전 문제 확정
             pushCurrent(i - 1);
@@ -1125,13 +1140,24 @@ function getOxCorrectText(q) {
             let rawTitle = leftTrimmed.slice(1).trim();
             let qType = undefined;
             let oxMeta = null;
+            let anyMeta = null;
 
-            // :: OX 붙은 경우
-            const oxMatch = rawTitle.match(/(.*)::\s*OX\s*$/i);
-            if (oxMatch) {
-              qType = "ox";
-              rawTitle = oxMatch[1].trim();
-              oxMeta = parseOxPattern(rawTitle);
+            // ★ ANY=N 붙은 경우 (예: :: ANY=5)
+            const anyMatch = rawTitle.match(/(.*)::\s*ANY\s*=\s*(\d+)\s*$/i);
+            if (anyMatch) {
+              qType = "any";
+              rawTitle = anyMatch[1].trim();
+              anyMeta = {
+                requiredCount: parseInt(anyMatch[2], 10) || 1,
+              };
+            } else {
+              // :: OX 붙은 경우
+              const oxMatch = rawTitle.match(/(.*)::\s*OX\s*$/i);
+              if (oxMatch) {
+                qType = "ox";
+                rawTitle = oxMatch[1].trim();
+                oxMeta = parseOxPattern(rawTitle);
+              }
             }
 
             if (!rawTitle) {
@@ -1143,9 +1169,10 @@ function getOxCorrectText(q) {
                 title: rawTitle,
                 answers: [],
                 ordered: false,
-                type: qType, // "ox" / "choice" / undefined
+                type: qType,     // "ox" / "choice" / "any" / undefined
                 choices: [],
-                ox: oxMeta, // { template, pairs }
+                ox: oxMeta,      // { template, pairs }
+                any: anyMeta,    // ★ ANY형 메타 (requiredCount)
                 startOffset: offset + line.indexOf("#"),
                 startLine: i,
                 endLine: i,
@@ -1153,6 +1180,7 @@ function getOxCorrectText(q) {
               };
             }
           }
+
 
           // 보기/답 라인: -, >, *, !
           else if (/^[-*>!]/.test(leftTrimmed)) {
@@ -1279,6 +1307,53 @@ function getOxCorrectText(q) {
           }
         });
       }
+      function isAnswerCorrect(userInput, variants) {
+        const user = normalizeText(userInput);
+        if (!user) return false;
+        return variants.some(v => {
+          const correct = normalizeText(v);
+          if (!correct) return false;
+          if (correct.length >= 8) {
+            let same = 0;
+            const len = Math.min(user.length, correct.length);
+            for (let i = 0; i < len; i++) {
+              if (user[i] === correct[i]) same++;
+            }
+            const ratio = same / correct.length;
+            return ratio >= 0.6;
+          } else {
+            return user === correct;
+          }
+        });
+      }
+
+      // ★ ANY형: 학생 답안을 여러 줄/쉼표로 나누기
+      function parseAnyUserInput(raw) {
+        return (raw || "")
+          .split(/[\n,;/]+/)
+          .map(s => s.trim())
+          .filter(Boolean);
+      }
+
+      // ★ ANY형: 학생 답안에서 몇 개나 정답 후보와 매칭되는지 세기
+      function countAnyMatches(q, userText) {
+        const tokens = parseAnyUserInput(userText);
+        if (!tokens.length) return 0;
+        const used = new Set(); // 같은 정답 후보를 두 번 세지 않기
+
+        let count = 0;
+        tokens.forEach(token => {
+          q.answers.forEach((a, ai) => {
+            if (used.has(ai)) return;
+            if (isAnswerCorrect(token, a.variants)) {
+              used.add(ai);
+              count++;
+            }
+          });
+        });
+
+        return count;
+      }
 
       function formatElapsedShort(now, last) {
         if (!last) return "아직 안 풀음";
@@ -1348,6 +1423,9 @@ function renderPreview() {
       type.textContent = "선지형";
     } else if (q.type === "ox") {
       type.textContent = "OX형";
+    } else if (q.type === "any") {                     // ★ 추가
+      const n = (q.any && q.any.requiredCount) || 1;
+      type.textContent = `특징 ${n}개 이상`;
     } else if (q.ordered) {
       type.textContent = "순서 문제";
     } else if (q.answers.length > 1) {
@@ -1706,6 +1784,9 @@ function renderExamView() {
       typeChip.textContent = "선지형";
     } else if (q.type === "ox") {
       typeChip.textContent = "OX";
+    } else if (q.type === "any") {                     // ★ 추가
+      const n = (q.any && q.any.requiredCount) || 1;
+      typeChip.textContent = `특징 ${n}개 이상`;
     } else if (q.ordered) {
       typeChip.textContent = "순서";
     } else if (q.answers.length > 1) {
@@ -1713,6 +1794,7 @@ function renderExamView() {
     } else {
       typeChip.textContent = "단답";
     }
+
     chipRow.appendChild(typeChip);
 
     const prChip = document.createElement("span");
@@ -1787,8 +1869,16 @@ function renderExamView() {
       btnGroup.appendChild(makeOxButton("X (거짓)", "X"));
       inputs.appendChild(btnGroup);
     }
-
-    // 단답 / 순서: 텍스트 입력
+    // ★ ANY형: textarea 한 칸 (여러 줄)
+    else if (q.type === "any") {
+      const label = document.createElement("label");
+      const textarea = document.createElement("textarea");
+      textarea.id = "exam-any-" + idx;
+      const n = (q.any && q.any.requiredCount) || 1;
+      textarea.placeholder = `각 특징을 한 줄에 하나씩 쓰세요 (최소 ${n}개)`;
+      label.appendChild(textarea);
+      inputs.appendChild(label);
+    }    // 단답 / 순서: 텍스트 입력
     else {
       const answerList = q.answers.length ? q.answers : [{ variants: [] }];
       answerList.forEach((a, ai) => {
@@ -1854,6 +1944,14 @@ currentExamSet.forEach((q, idx) => {
       allCorrect = selected.value === correctOX;
     }
   }
+    else if (q.type === "any") {
+      const textarea = document.getElementById("exam-any-" + idx);
+      const userText = textarea ? textarea.value : "";
+      const required = (q.any && q.any.requiredCount) || 1;
+      const matchCount = countAnyMatches(q, userText);
+      allCorrect = matchCount >= required;
+    }
+
   // ★ 기존 단답/순서형 채점
   else {
     const answerList = q.answers.length ? q.answers : [{ variants: [] }];
@@ -1994,6 +2092,9 @@ function renderPracticeView() {
     typeChip.textContent = "선지형";
   } else if (q.type === "ox") {
     typeChip.textContent = "OX";
+  } else if (q.type === "any") {              // ★ 추가
+    const n = (q.any && q.any.requiredCount) || 1;
+    typeChip.textContent = `특징 ${n}개 이상`;
   } else if (q.ordered) {
     typeChip.textContent = "순서";
   } else if (q.answers.length > 1) {
@@ -2001,6 +2102,7 @@ function renderPracticeView() {
   } else {
     typeChip.textContent = "단답";
   }
+
   chipRow.appendChild(typeChip);
 
   const prChip = document.createElement("span");
@@ -2073,7 +2175,16 @@ function renderPracticeView() {
     btnGroup.appendChild(makeOxBtn("X (거짓)", "X"));
     inputs.appendChild(btnGroup);
   }
-
+  // ★ ANY형: textarea 한 칸
+  else if (q.type === "any") {
+    const label = document.createElement("label");
+    const textarea = document.createElement("textarea");
+    textarea.id = "pr-any";
+    const n = (q.any && q.any.requiredCount) || 1;
+    textarea.placeholder = `각 특징을 한 줄에 하나씩 쓰세요 (최소 ${n}개)`;
+    label.appendChild(textarea);
+    inputs.appendChild(label);
+  }
   // 단답/순서
   else {
     const answerList = q.answers.length ? q.answers : [{ variants: [] }];
@@ -2173,6 +2284,13 @@ function evaluatePracticeCard(q) {
     } else {
       allCorrect = selected.value === correctOX;
     }
+  // ★ ANY형
+  } else if (q.type === "any") {
+    const ta = document.getElementById("pr-any");
+    const userText = ta ? ta.value : "";
+    const required = (q.any && q.any.requiredCount) || 1;
+    const matchCount = countAnyMatches(q, userText);
+    allCorrect = matchCount >= required;
   } else {
     const answerList = q.answers.length ? q.answers : [{ variants: [] }];
     answerList.forEach((a, ai) => {
@@ -2227,6 +2345,9 @@ function resetPracticeCard(q) {
       const btns = card.querySelectorAll(".choice-btn");
       btns.forEach(b => b.classList.remove("selected"));
     }
+  } else if (q.type === "any") {            // ★ 추가
+    const ta = document.getElementById("pr-any");
+    if (ta) ta.value = "";
   } else {
     const answerList = q.answers.length ? q.answers : [{ variants: [] }];
     answerList.forEach((a, ai) => {
