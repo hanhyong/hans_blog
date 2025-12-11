@@ -710,6 +710,77 @@
   }
 }
 
+/* === 플로팅 액션 버튼 (스크롤과 무관하게 떠 있는 영역) === */
+.fab-bar {
+  position: fixed;
+  right: 1.2rem;
+  bottom: 1.2rem;
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.9);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(10px);
+  z-index: 60;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.fab-bar.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  animation: fabFloatShadow 3s ease-in-out infinite;
+}
+
+.fab-bar button {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+}
+
+/* 플로팅 바 안 버튼 스타일 살짝 튜닝 */
+.fab-bar button.primary {
+  background: #2563eb;
+  color: #f9fafb;
+  border-color: #1d4ed8;
+}
+
+.fab-bar button.primary:hover {
+  background: #1d4ed8;
+}
+
+.fab-bar button.outline {
+  background: rgba(249, 250, 251, 0.95);
+  border-color: rgba(209, 213, 219, 0.9);
+  color: #111827;
+}
+
+.fab-bar button.outline:hover {
+  background: #eef2ff;
+}
+
+/* 둥둥 떠다니는 느낌: 그림자만 살짝 위아래 진동 */
+@keyframes fabFloatShadow {
+  0%, 100% {
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.45);
+  }
+  50% {
+    box-shadow: 0 26px 52px rgba(15, 23, 42, 0.6);
+  }
+}
+
+@media (max-width: 720px) {
+  .fab-bar {
+    left: 0.75rem;
+    right: 0.75rem;
+    justify-content: center;
+    bottom: 0.75rem;
+  }
+}
 
   </style>
 </head>
@@ -756,7 +827,7 @@
           </div>
         </div>
 
-        <div class="button-row">
+        <div class="button-row" id="edit-buttons-row">
           <button class="outline" id="reset-btn">전체 초기화</button>
           <button class="outline" id="reset-progress-btn">풀이 기록 초기화</button>
           <button class="outline" id="link-btn">링크 복사</button>
@@ -799,9 +870,10 @@
 
         <div id="exam-view">
           <div id="exam-container"></div>
-          <div class="button-row" style="justify-content:center;">
+          <!-- 변경 -->
+          <div class="button-row" style="justify-content:center;" id="exam-buttons-row">
             <button class="primary" id="grade-btn">채점</button>
-            <button class="outline" id="link-btn-solve">링크 복사</button> <!-- ★ 추가 -->
+            <button class="outline" id="link-btn-solve">링크 복사</button>
             <button class="outline" id="retry-wrong-btn">틀린 문제만 다시</button>
             <button class="outline" id="retry-all-btn">전체 다시</button>
           </div>
@@ -813,6 +885,20 @@
 
         </div>
       </section>
+
+
+            <!-- 플로팅 액션 버튼 (편집 뷰용) -->
+      <div id="edit-fab" class="fab-bar" aria-hidden="true">
+        <button type="button" class="outline" id="fab-link-edit">링크</button>
+        <button type="button" class="primary" id="fab-go-solve">문제 풀기</button>
+      </div>
+
+      <!-- 플로팅 액션 버튼 (풀이 뷰용 - 시험 모드 기준) -->
+      <div id="solve-fab" class="fab-bar" aria-hidden="true">
+        <button type="button" class="primary" id="fab-grade">채점</button>
+        <button type="button" class="outline" id="fab-retry-wrong">틀린 문제만</button>
+      </div>
+
     </div>
     <!-- 사용법 & GPT 프롬프트 안내 -->
     <section class="doc-section">
@@ -836,36 +922,99 @@
 
       <div class="doc-layout">
         <!-- 왼쪽: 문법 요약 -->
-        <div class="doc-panel">
-          <h3>문법 요약</h3>
-          <p class="doc-caption">
-            각 문항은 <code>#제목</code> 아래에 답/보기 줄을 적고,
-            문항 사이에는 빈 줄 한 줄을 둡니다.
-          </p>
-          <pre class="doc-code">① 단답형
+ <div class="doc-panel">
+  <h3>문법 요약</h3>
+  <p class="doc-caption">
+    한 문항은 항상 <code>#제목</code> 한 줄 + 그 아래 답/보기 줄들로만 구성합니다.
+    문항과 문항 사이에는 <strong>완전히 빈 줄</strong> 한 줄(스페이스도 없이)을 둡니다.
+  </p>
+  <pre class="doc-code">[공통 규칙]
+- 각 문항은 다음 구조를 가진다.
+  #질문(제목) ...
+    - / &gt; / * / ! 로 시작하는 줄들(답/보기)
+
+- 문항 사이에는 <완전히 비어 있는 줄> 한 줄만 둔다.
+  (공백, 탭 등이 들어간 줄은 "빈 줄"로 인식되지 않으므로 넣지 말 것)
+
+- 제목 줄(#) 아래에 나오는 줄들은 반드시 한 칸 이상 들여쓰기(보통 공백 2칸)를 한다.
+  예) "␣␣- 정답", "␣␣&gt; 단계1" 처럼 작성.
+
+
+① 단답형 (단일/여러 표현 허용)
+--------------------------------
 #세포호흡의 최종 전자 수용체는?
   - 산소
-  - O₂ / O2
+  - O₂ / O2 / 산소 분자
 
-② 순서형
+- "-" 다음에 "정답으로 인정할 표현들"을 "/"로 나열한다.
+- 학생 답은 공백/기호를 제거한 뒤 어느 한 표현과 충분히 비슷하면 정답으로 처리된다.
+- 같은 질문에 대해 여러 줄의 "-" 를 쓰면, "다단답형"처럼 여러 칸을 입력받는다.
+
+예)
+#광합성의 장소는?
+  - 엽록체 / 엽록체(클로로플라스트)
+
+
+② 순서형 (여러 단계의 순서를 맞추는 문제)
+----------------------------------------
 #광계 II와 I의 작동 순서를 쓰시오
-  >광계 II
-  >광계 I
+  &gt;광계 II
+  &gt;광계 I
+
+- ">" 로 시작하는 줄은 '순서가 있는 답'으로 취급한다.
+- 학생은 한 줄씩 순서를 입력하고, 각 줄이 해당 단계의 정답과 매칭되면 정답.
+
 
 ③ 선지형 (객관식, 여러 개 정답 가능)
+--------------------------------------
 #식물세포에서만 볼 수 있는 구조는?
-  *엽록체          &lt;-- 정답: * 한 개 이상 가능
-  !중심소체        &lt;-- 오답: ! 또는 -
-  !리소좀
+  *엽록체
+  *세포벽
+  !중심소체
   -미토콘드리아
 
-④ OX형
+- "*" 로 시작하는 줄  → 정답 보기
+- "!" 또는 "-" 로 시작하는 줄 → 오답 보기
+- 정답 보기는 여러 개여도 된다. (예: * 2개, ! 2개, - 1개 등)
+- 채점 기준: 
+  ─ 모든 정답 보기를 체크하고,
+  ─ 모든 오답 보기는 체크하지 않았을 때만 정답 처리된다.
+
+
+④ OX형 (괄호 안에서 참/거짓 문장 자동 생성)
+--------------------------------------------
 #물분자는 [1/2/3]개의 산소 원자와 [2/1/4]개의 수소 원자로 이루어져 있[다/지지 않는다].:: OX
 
-- 제목 끝에 ":: OX" 를 붙입니다.
-- 대괄호 [ ] 안의 값들 중 "첫 번째"가 참 문장일 때의 표현입니다.
-- 나머지 값들은 거짓 문장을 만들 때 랜덤으로 사용됩니다.
-- 프로그램이 매번 일부 괄호를 오답 값으로 바꾸어 O/X 문제를 출제합니다.</pre>
+- 제목 끝에 반드시 ":: OX" 를 붙인다.
+- 대괄호 [ ] 안에 여러 표현을 "/"로 나열한다.
+  - "첫 번째 값" = 문장이 '참'일 때의 표현
+  - 나머지 값들 = 거짓 문장을 만들 때 랜덤으로 사용할 표현들
+
+위 예시에서
+  [1/2/3] → 참일 때는 1, 거짓 만들 때는 2 또는 3 중 하나를 선택
+  [2/1/4] → 참일 때는 2, 거짓 만들 때는 1 또는 4 중 하나를 선택
+  [다/지지 않는다] → 참일 때는 "다", 거짓 문장일 때는 "지지 않는다"
+
+- 프로그램은 매번 일부 대괄호를 거짓 값으로 바꾸어 새로운 문장을 만들고,
+  그 문장이 맞으면 O, 틀리면 X가 정답이 되도록 자동 출제한다.
+
+
+⑤ ANY형 (특징 N개 이상 떠올리기)  ─ 선택 사항
+--------------------------------------------
+#식물세포의 특징을 [3]가지 이상 쓰시오:: ANY=3
+  - 세포벽이 있다
+  - 엽록체가 있다
+  - 큰 액포가 있다
+  - 광합성을 한다
+
+- 제목 끝에 ":: ANY=N" 을 붙이면, "특징을 N개 이상 쓰게 하는" 문제로 인식한다.
+  예: ":: ANY=3" → 정답 특징을 3개 이상 적으면 정답
+- 아래 "-" 줄들은 각각 "정답으로 인정할 수 있는 특징"이다.
+- 학생은 한 줄에 하나씩, 또는 쉼표·슬래시로 여러 개를 입력해도 된다.
+- 채점 방식:
+  - 학생이 쓴 문장들 중 정답 후보와 매칭되는 것이 N개 이상이면 정답 처리한다.</pre>
+</div>
+
         </div>
 
         <!-- 오른쪽: GPT 프롬프트 -->
@@ -967,6 +1116,13 @@
       const examView = document.getElementById("exam-view");
       const practiceView = document.getElementById("practice-view");
       const priorityCheckbox = document.getElementById("priority-checkbox");
+
+
+      const editButtonsRow = document.getElementById("edit-buttons-row");   // ★ 추가
+      const examButtonsRow = document.getElementById("exam-buttons-row");   // ★ 추가
+      const editFab = document.getElementById("edit-fab");                  // ★ 추가
+      const solveFab = document.getElementById("solve-fab");                // ★ 추가
+
       // 상태
       let questions = [];
       let stats = {}; // { [id]: { baseImportance, lastSolvedAt, lastResult } }
@@ -1055,6 +1211,32 @@ function getOxCorrectText(q) {
   return text;
 }
 
+      function isElementFullyInViewport(el) {
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.top >= 0 && rect.bottom <= window.innerHeight;
+      }
+
+      function updateFabVisibility() {
+        const inEdit = !editView.classList.contains("hidden");
+        const inSolve = !solveView.classList.contains("hidden");
+
+        if (editFab) {
+          if (inEdit && editButtonsRow && !isElementFullyInViewport(editButtonsRow)) {
+            editFab.classList.add("visible");
+          } else {
+            editFab.classList.remove("visible");
+          }
+        }
+
+        if (solveFab) {
+          if (inSolve && examButtonsRow && !isElementFullyInViewport(examButtonsRow)) {
+            solveFab.classList.add("visible");
+          } else {
+            solveFab.classList.remove("visible");
+          }
+        }
+      }
 
       // ---------- 공통 유틸 ----------
       function autoResizeEditor() {
@@ -2545,6 +2727,38 @@ function resetPracticeCard(q) {
         refreshAll();
         saveStateToHash();
       });
+      // ★ 플로팅 버튼들: 실제 버튼 click을 그대로 호출
+      const fabGoSolve = document.getElementById("fab-go-solve");
+      if (fabGoSolve) {
+        fabGoSolve.addEventListener("click", () => {
+          const btn = document.getElementById("go-solve-btn");
+          if (btn) btn.click();
+        });
+      }
+
+      const fabLinkEdit = document.getElementById("fab-link-edit");
+      if (fabLinkEdit) {
+        fabLinkEdit.addEventListener("click", () => {
+          const btn = document.getElementById("link-btn");
+          if (btn) btn.click();
+        });
+      }
+
+      const fabGrade = document.getElementById("fab-grade");
+      if (fabGrade) {
+        fabGrade.addEventListener("click", () => {
+          const btn = document.getElementById("grade-btn");
+          if (btn) btn.click();
+        });
+      }
+
+      const fabRetryWrong = document.getElementById("fab-retry-wrong");
+      if (fabRetryWrong) {
+        fabRetryWrong.addEventListener("click", () => {
+          const btn = document.getElementById("retry-wrong-btn");
+          if (btn) btn.click();
+        });
+      }
 
 // ★ 공용 링크 복사 함수
 function copyLinkToClipboard() {
@@ -2582,6 +2796,7 @@ if (linkBtnSolve) {
         editView.classList.add("hidden");
         solveView.classList.remove("hidden");
         setViewToggle("solve");
+       updateFabVisibility();   // ★ 추가
       });
 
       document.getElementById("back-edit-btn").addEventListener("click", () => {
@@ -2589,6 +2804,7 @@ if (linkBtnSolve) {
         editView.classList.remove("hidden");
         setViewToggle("edit");
         refreshAll();
+        updateFabVisibility();   // ★ 추가
       });
 
       document.getElementById("rebuild-btn").addEventListener("click", () => {
@@ -2605,26 +2821,37 @@ if (linkBtnSolve) {
       document.getElementById("retry-all-btn").addEventListener("click", retryAll);
 
       toggleViewBtns.forEach(btn => {
-        btn.addEventListener("click", () => {
-          const view = btn.dataset.view;
-          if (view === "edit") {
-            editView.classList.remove("hidden");
-            solveView.classList.add("hidden");
-          } else {
-            refreshAll();
-            if (!questions.length) {
-              alert("#문제를 먼저 입력해 주세요.");
-              return;
-            }
-            prepareQuizSet();
-            renderExamView();
-            renderPracticeView();
-            editView.classList.add("hidden");
-            solveView.classList.remove("hidden");
-          }
-          setViewToggle(view);
-        });
-      });
+  btn.addEventListener("click", () => {
+    const view = btn.dataset.view;
+
+    if (view === "edit") {
+      // ★ 순서만 살짝 정리 + refreshAll 추가
+      solveView.classList.add("hidden");
+      editView.classList.remove("hidden");
+
+      // ★ 여기서 에디터/미리보기 전체 다시 계산
+      refreshAll();
+      // (refreshAll 안에서 renderPreview → schedulePreviewLayout까지 호출됨)
+    } else {
+      // 풀이 모드로 들어갈 때는 기존 로직 유지
+      refreshAll();
+      if (!questions.length) {
+        alert("#문제를 먼저 입력해 주세요.");
+        return;
+      }
+      prepareQuizSet();
+      renderExamView();
+      renderPracticeView();
+      editView.classList.add("hidden");
+      solveView.classList.remove("hidden");
+    }
+
+    setViewToggle(view);
+    // 만약 내가 earlier에 fab 버튼 추가해줬다면, 여기서
+    // updateFabVisibility(); 도 같이 불러주면 돼.
+  });
+});
+
 
       function setViewToggle(view) {
         toggleViewBtns.forEach(b => {
@@ -2670,6 +2897,10 @@ if (linkBtnSolve) {
       }
       window.addEventListener("resize", () => {
         schedulePreviewLayout();
+        updateFabVisibility();   // ★ 추가
+      });
+        window.addEventListener("scroll", () => {
+        updateFabVisibility();   // ★ 추가
       });
       // ---------- 초기 로딩 ----------
       if (!restoreFromHash()) {
@@ -2678,6 +2909,7 @@ if (linkBtnSolve) {
         // 해시에서 복원된 경우도 포함해서
       }
       schedulePreviewLayout();
+      updateFabVisibility();   // ★ 추가
     })();
 
 
