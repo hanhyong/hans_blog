@@ -2870,7 +2870,6 @@ function evaluatePracticeCard(q) {
   const card = practiceContainer.querySelector(".solve-card");
 
   if (q.type === "choice" && q.choices && q.choices.length) {
-    const card = practiceContainer.querySelector(".solve-card");
     const nodes = card ? card.querySelectorAll('input[name="pr-choice"]') : [];
     if (!nodes.length) {
       allCorrect = false;
@@ -2890,7 +2889,6 @@ function evaluatePracticeCard(q) {
     } else {
       allCorrect = selected.value === correctOX;
     }
-  // ★ ANY형
   } else if (q.type === "any") {
     const ta = document.getElementById("pr-any");
     const userText = ta ? ta.value : "";
@@ -2908,15 +2906,8 @@ function evaluatePracticeCard(q) {
     });
   }
 
-  if (!stats[q.id]) {
-    stats[q.id] = {
-      baseImportance: 2,
-      lastSolvedAt: null,
-      lastResult: null,
-    };
-  }
-  stats[q.id].lastSolvedAt = now;
-  stats[q.id].lastResult = allCorrect ? "correct" : "wrong";
+  // ❌ 여기 있던 stats[q.id] 갱신 블럭은 완전히 삭제
+  //    → 카드 연습에서는 정답/오답이 우선도/기록에 전혀 반영되지 않음
 
   if (allCorrect) {
     fb.textContent = "정답입니다!";
@@ -2938,9 +2929,16 @@ function evaluatePracticeCard(q) {
     fb.className = "feedback no";
   }
 
+  // 여기서 refreshAll / saveStateToHash는
+  //  - 문제 텍스트 / 중요도 표시 다시 그리기
+  //  - 해시 저장 (text, stats 둘 다)
+  // 에 쓰이는데,
+  // stats는 안 바뀌었으니 우선도/경과 시간도 그대로 유지됨.
   refreshAll();
   saveStateToHash();
 }
+
+
 function resetPracticeCard(q) {
   const card = practiceContainer.querySelector(".solve-card");
 
