@@ -801,6 +801,7 @@
           <div id="exam-container"></div>
           <div class="button-row" style="justify-content:center;">
             <button class="primary" id="grade-btn">채점</button>
+            <button class="outline" id="link-btn-solve">링크 복사</button> <!-- ★ 추가 -->
             <button class="outline" id="retry-wrong-btn">틀린 문제만 다시</button>
             <button class="outline" id="retry-all-btn">전체 다시</button>
           </div>
@@ -2545,18 +2546,29 @@ function resetPracticeCard(q) {
         saveStateToHash();
       });
 
-      document.getElementById("link-btn").addEventListener("click", () => {
-        saveStateToHash();
-        const url = location.href;
-        if (navigator.clipboard?.writeText) {
-          navigator.clipboard.writeText(url).then(
-            () => alert("현재 상태가 포함된 링크가 클립보드에 복사되었습니다."),
-            () => alert("복사에 실패했습니다. 주소창에서 직접 복사해 주세요.")
-          );
-        } else {
-          alert("주소창의 URL을 직접 복사해 주세요.");
-        }
-      });
+// ★ 공용 링크 복사 함수
+function copyLinkToClipboard() {
+  saveStateToHash();                 // 현재 문제 + stats를 해시에 저장
+  const url = location.href;
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url).then(
+      () => alert("현재 상태가 포함된 링크가 클립보드에 복사되었습니다."),
+      () => alert("복사에 실패했습니다. 주소창에서 직접 복사해 주세요.")
+    );
+  } else {
+    alert("주소창의 URL을 직접 복사해 주세요.");
+  }
+}
+
+// 편집 화면 버튼
+document.getElementById("link-btn").addEventListener("click", copyLinkToClipboard);
+
+// ★ 풀이 화면 버튼
+const linkBtnSolve = document.getElementById("link-btn-solve");
+if (linkBtnSolve) {
+  linkBtnSolve.addEventListener("click", copyLinkToClipboard);
+}
+
 
       document.getElementById("go-solve-btn").addEventListener("click", () => {
         refreshAll();
