@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MD Reader</title>
+
+  <!-- markdown-it (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.2/dist/markdown-it.min.js"></script>
+  <!-- LZ-String for URL-safe compression -->
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0a0a0a; --fg: #e5e5e5; --muted: #9ca3af;
+      --panel: #171717; --panel-border: #262626;
+      --accent: #ffb8eb; --accent-opaque: rgba(255,184,235,1); --accent-trans: rgba(255,184,235,0.4);
+      --btn-green: #059669; --btn-rose: #e11d48; --btn-blue:#2563eb; --btn-amber:#d97706;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 56px; }
+    h1 { font-size: 24px; margin: 0 0 8px; }
+    .sub { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+
+    .toolbar{
+      position: sticky;
+      top: 12px;
+      z-index: 999;
+      background: rgba(10,10,10,.78);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--panel-border);
+      padding: 10px;
+      border-radius: 16px;
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    .btn { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--panel-border); background:#111; color:var(--fg); cursor:pointer; }
+    .btn:hover { filter: brightness(1.2); }
+    .btn.green { background: var(--btn-green); border-color: transparent; }
+    .btn.rose  { background: var(--btn-rose);  border-color: transparent; }
+    .btn.blue  { background: var(--btn-blue);  border-color: transparent; }
+    .btn.amber { background: var(--btn-amber); border-color: transparent; }
+    .dropzone { border:1.5px dashed var(--panel-border); color: var(--muted); border-radius: 16px; padding: 16px; margin: 12px 0; }
+    .panel { background: var(--panel); border:1px solid var(--panel-border); border-radius: 16px; padding: 20px; }
+
+    /* ✅ 핑크 마스크: mark 자체 */
+    mark.pink-mask {
+      background: transparent !important;
+      color: inherit;
+      position: relative;
+      display: inline-block;
+      border-radius: 6px;
+      cursor: pointer;
+      padding: 0 .22em;
+      line-height: inherit;
+      vertical-align: baseline;
+    }
+    mark.pink-mask:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    mark.pink-mask::after {
+      content: "";
+      position: absolute;
+      inset: -.08em -.16em;
+      border-radius: 8px;
+      transition: background-color .15s ease;
+      pointer-events: none;
+    }
+    mark.pink-mask[data-hidden="1"] {
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+    }
+    mark.pink-mask[data-hidden="1"]::after { background: var(--accent-opaque); }
+    mark.pink-mask[data-hidden="0"]::after { background: var(--accent-trans); }
+
+    /* prose-ish */
+    .content { white-space: normal; line-height: 1.45; }
+
+    .content p { margin: 0; }
+    .content p + p { margin-top: .25em; }
+
+    .content h1, .content h2, .content h3 { margin: .7em 0 .25em; }
+    .content h1:first-child, .content h2:first-child, .content h3:first-child { margin-top: 0; }
+
+    .content ul, .content ol { margin: .25em 0; padding-left: 1.35em; }
+    .content li { margin: .12em 0; }
+    .content li > p { margin: 0; }
+    .content li > ul, .content li > ol { margin-top: .12em; }
+    .content ul ul, .content ol ol, .content ul ol, .content ol ul { margin: .12em 0; }
+
+    .counter { margin-left:auto; color: var(--muted); font-size: 14px; }
+    .muted { color: var(--muted); }
+    .warn { color:#fda4af; font-size:13px; margin: 10px 0 0; }
+    .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+
+    .content strong { font-weight: 800; } /* 볼드 잘 보이게(안전) */
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <h1>MD Pink Mask Reader (Vanilla + Share)</h1>
+      <p class="sub">
+        드래그 하이라이트 • 핑크 <code>&lt;mark&gt;</code> 마스킹 • 링크 저장 • 단축키(a/d/tab/enter/undo)
+      </p>
+    </header>
+
+    <div class="toolbar">
+      <label class="btn" title=".md 파일 열기">
+        <input id="file-input" type="file" accept=".md,.markdown,.txt" hidden>
+        파일 열기 (.md)
+      </label>
+
+      <button class="btn" id="btn-paste">클립보드에서 붙여넣기</button>
+
+      <button class="btn amber" id="btn-mark"  title="A">핑크 하이라이트 추가 (A)</button>
+      <button class="btn"       id="btn-unmark" title="D">하이라이트 제거 (D)</button>
+
+      <button class="btn green" id="btn-show">전부 보이기</button>
+      <button class="btn rose"  id="btn-hide">전부 가리기</button>
+      <button class="btn blue"  id="btn-share">공유 링크 복사</button>
+
+      <span class="counter">핑크 블록: <b id="pink-count">0</b></span>
+    </div>
+
+    <div class="dropzone" id="dropzone">여기에 .md 파일을 드래그 앤 드롭하세요</div>
+
+    <section class="panel">
+      <div class="content" id="content" tabindex="-1"></div>
+      <p class="hint">
+        단축키: <b>A</b>(추가) / <b>D</b>(삭제) / <b>Tab</b>(다음) / <b>Shift+Tab</b>(이전) / <b>Enter</b>(가리기↔보이기) /
+        <b>Ctrl/Cmd+Z</b>(Undo)
+      </p>
+      <p class="warn" id="url-warn" style="display:none;">⚠️ 링크가 너무 길어질 수 있어요. 가능한 한 파일을 간결하게 유지하세요.</p>
+    </section>
+  </div>
+
+  <script>
+    /** =========================
+     *  State / Markdown
+     *  ========================= */
+    const state = {
+      kind: 'md',   // 'md' | 'html'
+      mdText: '',
+      docHtml: '',
+      pinkCount: 0
+    };
+
+    const md = window.markdownit({ html: true, linkify: true, breaks: true });
+
+    /** =========================
+     *  Elements
+     *  ========================= */
+    const fileInput   = document.getElementById('file-input');
+    const dropzone    = document.getElementById('dropzone');
+    const contentEl   = document.getElementById('content');
+    const pinkCountEl = document.getElementById('pink-count');
+    const urlWarnEl   = document.getElementById('url-warn');
+
+    /** =========================
+     *  Undo/Redo
+     *  ========================= */
+    const UNDO_LIMIT = 60;
+    const undoStack = [];
+    const redoStack = [];
+
+    function getFocusedMarkId(){
+      const a = document.activeElement;
+      if (a && a.tagName === 'MARK' && a.classList.contains('pink-mask')) return a.getAttribute('data-mid') || '';
+      return '';
+    }
+
+    function pushUndoSnapshot(){
+      const snap = {
+        html: contentEl.innerHTML,
+        kind: state.kind,
+        mdText: state.mdText,
+        scrollY: window.scrollY,
+        focusId: getFocusedMarkId()
+      };
+      undoStack.push(snap);
+      if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+      redoStack.length = 0;
+    }
+
+    function applySnapshot(snap){
+      // 스냅샷은 HTML 기반으로 복원
+      state.kind = 'html';
+      state.mdText = '';
+      state.docHtml = snap.html;
+
+      renderHtml(state.docHtml);
+      snapshotFromDom();        // state.docHtml 최신화
+      updateHashFromState();    // URL 반영
+
+      window.scrollTo({ top: snap.scrollY, behavior: 'auto' });
+
+      if (snap.focusId) {
+        const m = contentEl.querySelector(`mark.pink-mask[data-mid="${cssEscape(snap.focusId)}"]`);
+        if (m) {
+          m.focus({ preventScroll: true });
+          centerScrollTo(m);
+        }
+      }
+    }
+
+    function undo(){
+      if (!undoStack.length) return;
+      const current = {
+        html: contentEl.innerHTML,
+        scrollY: window.scrollY,
+        focusId: getFocusedMarkId()
+      };
+      redoStack.push(current);
+      const prev = undoStack.pop();
+      applySnapshot(prev);
+    }
+
+    function redo(){
+      if (!redoStack.length) return;
+      const current = {
+        html: contentEl.innerHTML,
+        scrollY: window.scrollY,
+        focusId: getFocusedMarkId()
+      };
+      undoStack.push(current);
+      const next = redoStack.pop();
+      applySnapshot(next);
+    }
+
+    /** =========================
+     *  Load file / drop / paste
+     *  ========================= */
+    fileInput.addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const text = await f.text();
+      loadMarkdown(text);
+      fileInput.value = '';
+      updateHashFromState();
+    });
+
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); });
+    dropzone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      const text = await f.text();
+      loadMarkdown(text);
+      updateHashFromState();
+    });
+
+    document.getElementById('btn-paste').addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          loadMarkdown(text);
+          updateHashFromState();
+        }
+      } catch {
+        alert('클립보드 읽기 권한이 거부되었습니다. 브라우저 설정을 확인하세요.');
+      }
+    });
+
+    /** =========================
+     *  Buttons
+     *  ========================= */
+    document.getElementById('btn-mark').addEventListener('click', () => addPinkHighlightFromSelection());
+    document.getElementById('btn-unmark').addEventListener('click', () => removePinkHighlightFromSelection());
+
+    document.getElementById('btn-show').addEventListener('click', () => {
+      pushUndoSnapshot();
+      setAllMasks(false);
+      commitDomChange();
+    });
+
+    document.getElementById('btn-hide').addEventListener('click', () => {
+      pushUndoSnapshot();
+      setAllMasks(true);
+      commitDomChange();
+    });
+
+    document.getElementById('btn-share').addEventListener('click', async () => {
+      try {
+        const url = updateHashFromState();
+        await navigator.clipboard.writeText(url);
+        alert('공유 링크를 클립보드에 복사했습니다!');
+      } catch {
+        prompt('복사할 링크입니다. 수동으로 복사하세요:', updateHashFromState());
+      }
+    });
+
+    /** =========================
+     *  Markdown preprocess: 홀수 ** -> 줄끝까지 <strong>로
+     *  ========================= */
+    function preprocessMarkdown(src){
+      const lines = (src || '').split(/\r?\n/);
+      let inFence = false;
+      let fenceChar = '';
+
+      return lines.map(line => {
+        const fm = line.match(/^\s*(```+|~~~+)/);
+        if (fm) {
+          const ch = fm[1][0];
+          if (!inFence) { inFence = true; fenceChar = ch; }
+          else if (ch === fenceChar) { inFence = false; }
+          return line;
+        }
+        if (inFence) return line;
+        return strongToEOL(line);
+      }).join('\n');
+    }
+
+    function strongToEOL(line){
+      let codeTickLen = 0;
+      const marks = [];
+
+      for (let i = 0; i < line.length; ) {
+        if (line[i] === '`' && (i === 0 || line[i-1] !== '\\')) {
+          let j = i;
+          while (j < line.length && line[j] === '`') j++;
+          const run = j - i;
+          if (codeTickLen === 0) codeTickLen = run;
+          else if (run === codeTickLen) codeTickLen = 0;
+          i = j;
+          continue;
+        }
+
+        if (codeTickLen === 0 && line[i] === '*' && line[i+1] === '*' && (i === 0 || line[i-1] !== '\\')) {
+          marks.push(i);
+          i += 2;
+          continue;
+        }
+        i++;
+      }
+
+      // 홀수면 마지막 **는 "줄 끝까지" 오픈으로 처리 (그리고 **는 사라짐)
+      if (marks.length % 2 === 1) {
+        const pos = marks[marks.length - 1];
+        return line.slice(0, pos) + '<strong>' + line.slice(pos + 2) + '</strong>';
+      }
+      return line;
+    }
+
+    /** =========================
+     *  Render / Load
+     *  ========================= */
+    function clearHistoryOnLoad(){
+      undoStack.length = 0;
+      redoStack.length = 0;
+    }
+
+    function loadMarkdown(text){
+      clearHistoryOnLoad();
+      state.kind = 'md';
+      state.mdText = text || '';
+      const pre = preprocessMarkdown(state.mdText);
+      state.docHtml = md.render(pre);
+      renderHtml(state.docHtml);
+      contentEl.focus({preventScroll:false});
+    }
+
+    function loadHtml(html){
+      clearHistoryOnLoad();
+      state.kind = 'html';
+      state.mdText = '';
+      state.docHtml = html || '';
+      renderHtml(state.docHtml);
+      contentEl.focus({preventScroll:false});
+    }
+
+    function renderHtml(html){
+      contentEl.innerHTML = html || '';
+      decoratePinkMarks(contentEl);
+      refreshPinkCount();
+      resetNavIndex();
+    }
+
+    function commitDomChange(){
+      // DOM 변경 후 공통 처리
+      decoratePinkMarks(contentEl);
+      refreshPinkCount();
+      snapshotFromDom();
+      updateHashFromState();
+    }
+
+    /** =========================
+     *  Pink detection + decorate
+     *  ========================= */
+    const boundMarks = new WeakSet();
+    let nextMarkId = 1;
+
+    function ensureNextMarkId(){
+      let maxId = 0;
+      contentEl.querySelectorAll('mark[data-mid]').forEach(m => {
+        const n = parseInt(m.getAttribute('data-mid') || '0', 10);
+        if (!isNaN(n)) maxId = Math.max(maxId, n);
+      });
+      nextMarkId = Math.max(nextMarkId, maxId + 1);
+    }
+
+    function isPinkMark(node){
+      if (!node || node.tagName !== 'MARK') return false;
+      if (node.getAttribute('data-pink') === '1') return true;
+      if (node.classList && node.classList.contains('pink-mask')) return true;
+      const style = (node.getAttribute('style') || '').toLowerCase().replace(/\s+/g,'');
+      return style.includes('#ffb8eb');
+    }
+
+    function ensureMarkId(mark){
+      if (!mark.getAttribute('data-mid')) {
+        ensureNextMarkId();
+        mark.setAttribute('data-mid', String(nextMarkId++));
+      }
+    }
+
+    function decoratePinkMarks(root){
+      const marks = Array.from(root.querySelectorAll('mark'));
+      marks.forEach(m => {
+        if (!isPinkMark(m)) return;
+
+        ensureMarkId(m);
+
+        m.classList.add('pink-mask');
+        m.setAttribute('data-pink','1');
+        if (!m.hasAttribute('data-hidden')) m.setAttribute('data-hidden','1');
+
+        m.setAttribute('role','button');
+        m.tabIndex = 0;
+        if (!m.getAttribute('title')) m.setAttribute('title', 'Enter로 토글');
+
+        if (boundMarks.has(m)) return;
+        boundMarks.add(m);
+
+        m.addEventListener('click', () => {
+          if (hasActiveSelectionInContent()) return;
+          pushUndoSnapshot();
+          toggleMask(m);
+          commitDomChange();
+          m.focus({preventScroll:true});
+          centerScrollTo(m);
+        });
+
+m.addEventListener('keydown', (e) => {
+  const isEnter = (e.key === 'Enter');
+  const isSpace = (e.key === ' ' || e.code === 'Space');
+  if (!isEnter && !isSpace) return;
+
+  e.preventDefault(); // ✅ Space 누를 때 페이지 스크롤 방지
+  pushUndoSnapshot();
+  toggleMask(m);
+  commitDomChange();
+  m.focus({ preventScroll: true });
+  centerScrollTo(m);
+});
+
+      });
+      ensureNextMarkId();
+    }
+
+    function toggleMask(markEl){
+      const hidden = markEl.getAttribute('data-hidden') === '1';
+      markEl.setAttribute('data-hidden', hidden ? '0' : '1');
+    }
+
+    function setAllMasks(hide){
+      contentEl.querySelectorAll('mark.pink-mask').forEach(el => {
+        el.setAttribute('data-hidden', hide ? '1' : '0');
+      });
+    }
+
+    function refreshPinkCount(){
+      const count = Array.from(contentEl.querySelectorAll('mark')).filter(isPinkMark).length;
+      state.pinkCount = count;
+      pinkCountEl.textContent = String(count);
+    }
+
+    function hasActiveSelectionInContent(){
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return false;
+      if (sel.isCollapsed) return false;
+      const r = sel.getRangeAt(0);
+      return contentEl.contains(r.commonAncestorContainer);
+    }
+
+    /** =========================
+     *  Highlight add/remove
+     *  ========================= */
+    const BLOCK_TAGS = new Set(['P','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE','PRE','TD','TH']);
+
+    function getNearestBlock(node){
+      let el = (node && node.nodeType === 1) ? node : node?.parentElement;
+      while (el && el !== contentEl) {
+        if (BLOCK_TAGS.has(el.tagName)) return el;
+        el = el.parentElement;
+      }
+      return null;
+    }
+
+    function closestPinkMark(node){
+      let el = (node && node.nodeType === 1) ? node : node?.parentElement;
+      while (el && el !== contentEl) {
+        if (el.tagName === 'MARK' && isPinkMark(el)) return el;
+        el = el.parentElement;
+      }
+      return null;
+    }
+
+    function addPinkHighlightFromSelection(){
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return null;
+
+      const range = sel.getRangeAt(0);
+      if (range.collapsed) return null;
+      if (!contentEl.contains(range.commonAncestorContainer)) return null;
+
+      const sb = getNearestBlock(range.startContainer);
+      const eb = getNearestBlock(range.endContainer);
+      if (sb && eb && sb !== eb) return null;
+
+      if (range.startContainer.parentElement?.closest('pre, code') || range.endContainer.parentElement?.closest('pre, code')) {
+        return null;
+      }
+
+      const inside = closestPinkMark(range.commonAncestorContainer);
+      if (inside) return null;
+
+      pushUndoSnapshot();
+
+      const frag = range.extractContents();
+      const mark = document.createElement('mark');
+      mark.setAttribute('data-pink','1');
+      mark.setAttribute('data-hidden','0');
+      mark.setAttribute('style','background:#FFB8EBA6;');
+      mark.appendChild(frag);
+
+      range.insertNode(mark);
+
+      sel.removeAllRanges();
+      const after = document.createRange();
+      after.setStartAfter(mark);
+      after.collapse(true);
+      sel.addRange(after);
+
+      commitDomChange();
+
+      // 포커스 + 중앙 스크롤
+      mark.focus({ preventScroll: true });
+      centerScrollTo(mark);
+
+      return mark;
+    }
+
+    function removePinkHighlightFromSelection(){
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return false;
+
+      const range = sel.getRangeAt(0);
+      if (!contentEl.contains(range.commonAncestorContainer)) return false;
+
+      let targets = [];
+      if (range.collapsed) {
+        const m = closestPinkMark(sel.focusNode);
+        if (m && contentEl.contains(m)) targets = [m];
+      } else {
+        const marks = Array.from(contentEl.querySelectorAll('mark')).filter(isPinkMark);
+        targets = marks.filter(m => {
+          try { return range.intersectsNode(m); } catch { return false; }
+        });
+      }
+      if (!targets.length) return false;
+
+      pushUndoSnapshot();
+
+      targets.sort((a,b) => getDepth(b) - getDepth(a));
+      targets.forEach(unwrapMark);
+      contentEl.normalize();
+
+      commitDomChange();
+      return true;
+    }
+
+    function getDepth(el){
+      let d = 0, cur = el;
+      while (cur && cur !== contentEl) { d++; cur = cur.parentElement; }
+      return d;
+    }
+
+    function unwrapMark(markEl){
+      const parent = markEl.parentNode;
+      if (!parent) return;
+      while (markEl.firstChild) parent.insertBefore(markEl.firstChild, markEl);
+      parent.removeChild(markEl);
+    }
+
+    /** =========================
+     *  Tab navigation (focus + center scroll)
+     *  ========================= */
+    let navIndex = -1;
+
+    function resetNavIndex(){ navIndex = -1; }
+
+    function getPinkMarks(){
+      return Array.from(contentEl.querySelectorAll('mark.pink-mask'));
+    }
+
+    function centerScrollTo(el){
+      const r = el.getBoundingClientRect();
+      const target = window.scrollY + r.top + (r.height / 2) - (window.innerHeight / 2);
+      window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+    }
+
+    function focusPinkByDelta(delta){
+      const marks = getPinkMarks();
+      if (!marks.length) return false;
+
+      const active = document.activeElement;
+      let idx = marks.indexOf(active);
+
+      if (idx === -1) idx = (delta > 0) ? -1 : 0;
+      idx = (idx + delta + marks.length) % marks.length;
+
+      navIndex = idx;
+      const m = marks[idx];
+      m.focus({ preventScroll: true });
+      centerScrollTo(m);
+      return true;
+    }
+
+    /** =========================
+     *  URL hash encode/decode
+     *  ========================= */
+    function buildUrlWithHash(encoded){
+      const { origin, pathname, search } = window.location;
+      return `${origin}${pathname}${search}#s=${encoded}`;
+    }
+
+    function snapshotFromDom(){
+      state.kind = 'html';
+      state.mdText = '';
+      state.docHtml = contentEl.innerHTML;
+    }
+
+    function updateHashFromState(){
+      const data = (state.kind === 'md') ? state.mdText : state.docHtml;
+      if (!data) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+        urlWarnEl.style.display = 'none';
+        return window.location.href;
+      }
+      const payload = { v: 1, k: (state.kind === 'md' ? 'm' : 'h'), d: data };
+      const enc = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
+      const url = buildUrlWithHash(enc);
+      urlWarnEl.style.display = (url.length > 2000) ? 'block' : 'none';
+      history.replaceState(null, '', url);
+      return url;
+    }
+
+    function tryLoadFromHash(){
+      const hash = window.location.hash || '';
+      const s = hash.match(/[#&]s=([^&]+)/);
+      if (s) {
+        try {
+          const dec = LZString.decompressFromEncodedURIComponent(s[1]);
+          const obj = JSON.parse(dec);
+          if (obj && obj.v === 1 && typeof obj.d === 'string') {
+            if (obj.k === 'h') loadHtml(obj.d);
+            else loadMarkdown(obj.d);
+            return true;
+          }
+        } catch (e) {
+          console.warn('해시 복원 실패(s):', e);
+        }
+      }
+
+      const m = hash.match(/[#&]md=([^&]+)/);
+      if (m) {
+        try {
+          const dec = LZString.decompressFromEncodedURIComponent(m[1]);
+          if (typeof dec === 'string') {
+            loadMarkdown(dec);
+            return true;
+          }
+        } catch (e) {
+          console.warn('해시 복원 실패(md):', e);
+        }
+      }
+      return false;
+    }
+
+    /** =========================
+     *  Keyboard shortcuts
+     *  ========================= */
+    document.addEventListener('keydown', (e) => {
+      if (e.isComposing) return;
+
+      const tag = document.activeElement?.tagName || '';
+      const isForm = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      if (isForm) return;
+
+      const key = e.key;
+      const lower = (key || '').toLowerCase();
+      const mod = e.ctrlKey || e.metaKey;
+
+      // Undo / Redo
+      if (mod && lower === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      if (mod && ((lower === 'z' && e.shiftKey) || lower === 'y')) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      // a: add highlight
+      if (!mod && !e.altKey && lower === 'a') {
+        e.preventDefault();
+        addPinkHighlightFromSelection();
+        return;
+      }
+
+      // d: remove highlight
+      if (!mod && !e.altKey && lower === 'd') {
+        e.preventDefault();
+        removePinkHighlightFromSelection();
+        return;
+      }
+
+      // Tab navigation between highlights
+      if (!mod && !e.altKey && key === 'Tab') {
+        const marks = getPinkMarks();
+        if (marks.length) {
+          e.preventDefault();
+          focusPinkByDelta(e.shiftKey ? -1 : 1);
+        }
+        return;
+      }
+
+      // Enter: toggle focused highlight
+      if (!mod && !e.altKey && key === 'Enter') {
+        const a = document.activeElement;
+        if (a && a.tagName === 'MARK' && a.classList.contains('pink-mask')) {
+          e.preventDefault();
+          pushUndoSnapshot();
+          toggleMask(a);
+          commitDomChange();
+          centerScrollTo(a);
+        }
+        return;
+      }
+    });
+
+    /** =========================
+     *  Helpers
+     *  ========================= */
+    function cssEscape(s){
+      // minimal escape for attribute selector
+      return String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    }
+
+    /** =========================
+     *  Demo + init
+     *  ========================= */
+    const demo = `# 데모
+
+- 드래그 후 A : 하이라이트 추가
+- D : 하이라이트 제거
+- Tab / Shift+Tab : 하이라이트 이동 + 중앙 스크롤
+- Enter : 가리기↔보이기
+- Ctrl/Cmd+Z : Undo
+
+예시: <mark style="background:#FFB8EBA6;">여기는 핑크 마스크</mark>`;
+
+    if (!tryLoadFromHash()) {
+      loadMarkdown(demo);
+      updateHashFromState();
+    }
+
+    window.addEventListener('hashchange', () => {
+      tryLoadFromHash();
+    });
+  </script>
+</body>
+</html>

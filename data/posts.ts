@@ -134,6 +134,18 @@ export const posts: Post[] = [
   content: "귤속 계통을 노드로 보기 쉽게 만들었습니다.",
   projects: ["citrus"],
 },
+
+{
+  slug: "--",
+  title: "md 리더",
+  date: "2025-12-15",
+  folder: "javascript",
+  series: "small_project",
+  tag: "note",
+  description: "md 리더",
+  content: "md 리더기입니다.",
+  projects: ["mdreader"],
+},
 ];
 export function getPostBySlug(slug: string): Post | undefined {
   return posts.find((p) => p.slug === slug);
