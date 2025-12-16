@@ -146,6 +146,17 @@ export const posts: Post[] = [
   content: "md 리더기입니다.",
   projects: ["mdreader"],
 },
+  {
+    slug: "-",
+    title: "서술형 채점 프로그램",
+    date: "2025-12-17",
+    folder: "javascript",
+    series: "small_project",
+    tag: "note",
+    description: "설명 없음",
+    content: "서술형을 자동으로 채점해줘요",
+    projects: ["descriptive"],
+  },
 ];
 export function getPostBySlug(slug: string): Post | undefined {
   return posts.find((p) => p.slug === slug);
