@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>서술형 자동 채점기 (BYOK)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
+  <style>
+    :root{
+      --bg:#f5f5fb; --card:#fff; --accent:#2563eb; --accent2:#1d4ed8;
+      --text:#111827; --muted:#6b7280; --border:#e5e7eb; --border2:#cbd5e1;
+      --ok:#15803d; --no:#b91c1c;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+      background:var(--bg); color:var(--text); padding:1.2rem .75rem 2rem;
+    }
+    .app{max-width:1100px;margin:0 auto}
+    header{display:flex;align-items:flex-end;justify-content:space-between;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap}
+    header h1{font-size:1.25rem;font-weight:800;letter-spacing:-.02em}
+    header .sub{font-size:.86rem;color:var(--muted);line-height:1.4}
+    .card{
+      background:var(--card); border-radius:1rem; border:1px solid var(--border);
+      box-shadow:0 18px 40px rgba(15,23,42,.08), 0 1px 3px rgba(15,23,42,.06);
+      padding:1rem 1.1rem 1.1rem;
+    }
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;margin-bottom:.8rem}
+    .badge{
+      font-size:.72rem;padding:.12rem .5rem;border-radius:999px;border:1px solid #dbeafe;
+      background:#eff6ff;color:#1d4ed8;font-weight:600;
+    }
+    .switch{
+      display:inline-flex;border-radius:999px;border:1px solid var(--border2);background:#f9fafb;
+      padding:.12rem;gap:.12rem;
+    }
+    .switch button{
+      border:none;border-radius:999px;padding:.2rem .75rem;font-size:.8rem;background:transparent;
+      color:#4b5563;cursor:pointer;
+    }
+    .switch button.active{background:var(--accent2);color:#f9fafb}
+    .layout{display:flex;gap:1rem;flex-wrap:wrap;align-items:stretch}
+    .col{flex:1;min-width:280px;display:flex;flex-direction:column;gap:.5rem}
+    .coltitle{display:flex;justify-content:space-between;align-items:baseline}
+    .coltitle span:first-child{font-size:.88rem;font-weight:700}
+    .coltitle span:last-child{font-size:.78rem;color:var(--muted)}
+    textarea{
+      width:100%; border-radius:.85rem; border:1px solid var(--border2);
+      padding:.85rem .9rem; font-size:.95rem; line-height:1.75; outline:none;
+      background:#f9fafb; color:#111827; resize:vertical; min-height:340px;
+      font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    }
+    textarea:focus{border-color:var(--accent);box-shadow:0 0 0 1px rgba(37,99,235,.25);background:#fff}
+    .hint{font-size:.8rem;color:var(--muted);line-height:1.6}
+    .hint code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:.8rem;
+      padding:.05rem .3rem;border-radius:.35rem;background:#e5e7eb;color:#111827}
+    .panel{
+      background:#f3f4ff;border:1px solid var(--border2);border-radius:.9rem;
+      padding:.65rem .65rem .7rem; display:flex; flex-direction:column; gap:.6rem;
+    }
+    .qcard{
+      background:#fff;border:1px solid var(--border);border-radius:.85rem;padding:.75rem .8rem;
+      box-shadow:0 8px 18px rgba(15,23,42,.07);
+    }
+    .qhead{display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start;margin-bottom:.35rem}
+    .qtitle{font-weight:800;font-size:.95rem;line-height:1.35}
+    .chiprow{display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end}
+    .chip{
+      font-size:.72rem;padding:.08rem .5rem;border-radius:999px;border:1px solid var(--border2);
+      background:#f3f4f6;color:#4b5563;white-space:nowrap
+    }
+    .qmeta{font-size:.78rem;color:#4b5563;line-height:1.6}
+    .qmeta ul{margin-top:.35rem;padding-left:1.05rem}
+    .qmeta li{margin:.06rem 0}
+    .row{
+      display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;
+      background:#f9fafb;border:1px solid var(--border);border-radius:.85rem;padding:.75rem .8rem;
+    }
+    .field{display:flex;flex-direction:column;gap:.25rem;min-width:240px;flex:1}
+    .field label{font-size:.78rem;color:#4b5563;font-weight:700}
+    .field input,.field select{
+      border-radius:999px;border:1px solid var(--border2);padding:.35rem .75rem;
+      font-size:.85rem;background:#fff;color:#111827;outline:none;height:2.2rem;
+    }
+    .field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 1px rgba(37,99,235,.25)}
+    .btnrow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+    button.btn{
+      border-radius:999px;border:1px solid transparent;padding:.35rem .95rem;font-size:.85rem;font-weight:700;
+      cursor:pointer;background:#e5e7eb;color:#111827;display:inline-flex;align-items:center;gap:.35rem;
+    }
+    button.btn.primary{background:var(--accent);border-color:var(--accent2);color:#f9fafb}
+    button.btn.primary:hover{background:var(--accent2)}
+    button.btn.outline{background:#fff;border-color:var(--border2)}
+    button.btn.outline:hover{background:#f3f4f6}
+    button.btn:disabled{opacity:.55;cursor:default}
+    .hidden{display:none!important}
+    .solveWrap{display:flex;flex-direction:column;gap:.75rem}
+    .ansbox{min-height:120px}
+
+    .result{
+      margin-top:.55rem;border-top:1px dashed var(--border2);padding-top:.55rem;
+      font-size:.85rem;line-height:1.6;color:#111827;
+    }
+    .result .score{font-weight:900}
+    .ok{color:var(--ok);font-weight:800}
+    .no{color:var(--no);font-weight:800}
+    .small{font-size:.78rem;color:var(--muted)}
+    .warn{
+      margin-top:.8rem;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;
+      border-radius:.85rem;padding:.7rem .8rem;font-size:.82rem;line-height:1.55
+    }
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .spinner{
+      width:14px;height:14px;border-radius:50%;border:2px solid rgba(17,24,39,.25);
+      border-top-color:rgba(17,24,39,.85);display:inline-block;animation:spin .9s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ✅ 핵심: 못쓴/틀린 내용 강조 */
+    .hl-miss{color:var(--no);font-weight:900}
+    .modelBox{
+      margin-top:.55rem;
+      border:1px solid var(--border);
+      border-radius:.75rem;
+      background:#ffffff;
+      padding:.6rem .7rem;
+    }
+    .modelBox ul{margin-top:.35rem;padding-left:1.05rem}
+    .modelBox li{margin:.14rem 0}
+    .issueBox{
+      margin-top:.55rem;
+      border:1px solid #fecaca;
+      border-radius:.75rem;
+      background:#fff1f2;
+      padding:.6rem .7rem;
+    }
+    .issueBox ul{margin-top:.35rem;padding-left:1.05rem}
+    .issueBox li{margin:.14rem 0}
+  </style>
+</head>
+
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>서술형 자동 채점기 (대괄호 필수요소 + AI 판정)</h1>
+      <div class="sub">
+        편집에서 기준을 만들고, 풀이에서 학생 답안을 AI가 채점합니다.<br/>
+        <span class="small">각 <b>-줄(기준)</b>은 그 줄의 모든 <code>[요소]</code>가 “올바른 관계로” 충족되면 1점(땡처리)입니다.</span>
+      </div>
+    </div>
+    <div class="switch" aria-label="view switch">
+      <button id="btnEdit" class="active" type="button">편집</button>
+      <button id="btnSolve" type="button">풀이</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="topbar">
+      <div style="display:flex;align-items:baseline;gap:.55rem">
+        <span class="badge" id="modeBadge">에디터</span>
+        <div style="font-weight:800;font-size:.92rem;color:#1f2937" id="modeTitle">기준 작성 & 미리보기</div>
+      </div>
+      <div class="chiprow">
+        <span class="chip" id="qCountChip">문항 0</span>
+        <span class="chip" id="reqCountChip">요소 0</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field" style="min-width:320px;flex:2">
+        <label>OpenAI API Key (본인 키 붙여넣기)</label>
+        <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" />
+        <div class="small">※ 키는 링크/해시에 저장되지 않습니다.</div>
+      </div>
+
+      <div class="field">
+        <label>모델</label>
+        <select id="modelSel">
+          <option value="gpt-4.1-mini">gpt-4.1-mini (권장)</option>
+          <option value="gpt-4o-mini">gpt-4o-mini</option>
+          <option value="gpt-4.1">gpt-4.1</option>
+        </select>
+      </div>
+
+      <div class="field" style="min-width:160px;flex:0 0 auto">
+        <label>옵션</label>
+        <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+          <button class="btn outline" id="toggleKey" type="button">키 보기</button>
+          <button class="btn outline" id="copyLink" type="button">링크 복사</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="warn">
+      <b>보안 주의:</b> “브라우저에서 직접 API 호출 + 키 입력(BYOK)” 방식은 키 유출 위험이 있습니다.
+      가능하면 프록시(서버/서버리스)를 두는 게 더 안전합니다.
+    </div>
+
+    <!-- Edit View -->
+    <section id="editView" style="margin-top:.9rem">
+      <div class="layout">
+        <div class="col">
+          <div class="coltitle">
+            <span>문항/기준 입력</span>
+            <span class="small">#문항 / -기준 / [필수요소]</span>
+          </div>
+          <textarea id="editor" spellcheck="false" placeholder="#뇌하수체 호르몬에 대해 적으시오
+-[생장호르몬] 은 [생장]과 [대사]를 자극함
+-[갑상샘 자극 호르몬] 은 [갑상샘을 자극하여] [티로신을 분비]한다."></textarea>
+
+          <div class="hint">
+            ✅ <code>[ ]</code> 안은 “필수 요소”입니다. 학생 답안에 <b>의미상 포함</b>되면 통과.<br/>
+            ✅ <code>[표현1/표현2]</code>처럼 슬래시로 동의어 허용 가능.<br/>
+            ✅ 단, “주체-작용-대상 관계”가 틀리면 (예: 생장호르몬이 갑상샘을 자극) 요소가 있어 보여도 <b>불충족</b> 처리합니다.
+          </div>
+
+          <div class="btnrow">
+            <button class="btn outline" id="resetAll" type="button">전체 초기화</button>
+            <button class="btn outline" id="loadExample" type="button">예시 넣기</button>
+            <button class="btn primary" id="goSolve" type="button">풀이로</button>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="coltitle">
+            <span>미리보기</span>
+            <span class="small">편집 모드에서는 기준문장이 보입니다</span>
+          </div>
+          <div class="panel" id="preview"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Solve View -->
+    <section id="solveView" class="hidden" style="margin-top:.9rem">
+      <div class="solveWrap" id="solveWrap"></div>
+
+      <div class="btnrow" style="justify-content:center;margin-top:.9rem">
+        <button class="btn outline" id="backEdit" type="button">← 편집으로</button>
+        <button class="btn primary" id="gradeAll" type="button">채점</button>
+        <button class="btn outline" id="clearAnswers" type="button">답안 지우기</button>
+      </div>
+
+      <div class="small" style="text-align:center;margin-top:.5rem">
+        채점은 문항별로 API를 호출합니다.
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const btnEdit = document.getElementById("btnEdit");
+  const btnSolve = document.getElementById("btnSolve");
+  const editView = document.getElementById("editView");
+  const solveView = document.getElementById("solveView");
+  const modeBadge = document.getElementById("modeBadge");
+  const modeTitle = document.getElementById("modeTitle");
+
+  const editor = document.getElementById("editor");
+  const preview = document.getElementById("preview");
+  const solveWrap = document.getElementById("solveWrap");
+
+  const apiKeyEl = document.getElementById("apiKey");
+  const modelSel = document.getElementById("modelSel");
+  const toggleKey = document.getElementById("toggleKey");
+
+  const qCountChip = document.getElementById("qCountChip");
+  const reqCountChip = document.getElementById("reqCountChip");
+
+  const copyLinkBtn = document.getElementById("copyLink");
+  const resetAllBtn = document.getElementById("resetAll");
+  const loadExampleBtn = document.getElementById("loadExample");
+  const goSolveBtn = document.getElementById("goSolve");
+  const backEditBtn = document.getElementById("backEdit");
+  const gradeAllBtn = document.getElementById("gradeAll");
+  const clearAnswersBtn = document.getElementById("clearAnswers");
+
+  let questions = [];
+
+  function makeId(title, idx){ return (title || "Q") + "|" + idx.toString(36); }
+
+  function parseRubric(text){
+    const lines = (text || "").split(/\r?\n/);
+    const res = [];
+    let cur = null;
+    let qIdx = 0;
+
+    function pushCur(){
+      if(cur && cur.title && cur.title.trim()) res.push(cur);
+      cur = null;
+    }
+
+    for(let i=0;i<lines.length;i++){
+      const raw = lines[i];
+      const line = raw.trim();
+      if(!line) continue;
+
+      if(line.startsWith("#")){
+        pushCur();
+        const title = line.slice(1).trim();
+        if(!title) continue;
+        cur = { id: makeId(title, qIdx++), title, rubricLines: [], requirements: [] };
+        continue;
+      }
+
+      if(line.startsWith("-")){
+        if(!cur) continue;
+
+        const rubric = line.slice(1).trim();
+        const lineId = `${cur.id}_L${cur.rubricLines.length}`;
+        const lineObj = { id: lineId, text: rubric, reqIds: [] };
+        cur.rubricLines.push(lineObj);
+
+        const re = /\[([^\]]+)\]/g;
+        let m;
+        while((m = re.exec(rubric)) !== null){
+          const inside = (m[1] || "").trim();
+          if(!inside) continue;
+          const alts = inside.split("/").map(s=>s.trim()).filter(Boolean);
+          const reqId = `${lineId}_R${lineObj.reqIds.length}`;
+          cur.requirements.push({ id: reqId, lineId, alts, display: alts.join(" / ") });
+          lineObj.reqIds.push(reqId);
+        }
+
+        // 대괄호가 하나도 없으면, 줄 전체를 필수요소 1개로 취급
+        if(lineObj.reqIds.length === 0){
+          const reqId = `${lineId}_R0`;
+          cur.requirements.push({ id:reqId, lineId, alts:[rubric], display: rubric });
+          lineObj.reqIds.push(reqId);
+        }
+
+        continue;
+      }
+    }
+    pushCur();
+    return res;
+  }
+
+  function updateCounts(){
+    const qCount = questions.length;
+    const reqCount = questions.reduce((acc,q)=>acc+(q.requirements?.length||0),0);
+    qCountChip.textContent = `문항 ${qCount}`;
+    reqCountChip.textContent = `요소 ${reqCount}`;
+  }
+
+  function escapeHtml(s){
+    return String(s ?? "")
+      .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  }
+
+  function renderPreview(){
+    preview.innerHTML = "";
+    if(!questions.length){
+      preview.innerHTML = `<div class="small">#문항을 입력하면 미리보기가 생성됩니다.</div>`;
+      updateCounts();
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    questions.forEach((q, idx) => {
+      const card = document.createElement("div");
+      card.className = "qcard";
+
+      const head = document.createElement("div");
+      head.className = "qhead";
+
+      const title = document.createElement("div");
+      title.className = "qtitle";
+      title.textContent = `${idx+1}. ${q.title}`;
+
+      const chipRow = document.createElement("div");
+      chipRow.className = "chiprow";
+
+      const c1 = document.createElement("span");
+      c1.className = "chip";
+      c1.textContent = `기준 ${q.rubricLines.length}개`;
+
+      const c2 = document.createElement("span");
+      c2.className = "chip";
+      c2.textContent = `요소 ${q.requirements.length}개`;
+
+      chipRow.appendChild(c1); chipRow.appendChild(c2);
+      head.appendChild(title); head.appendChild(chipRow);
+      card.appendChild(head);
+
+      const meta = document.createElement("div");
+      meta.className = "qmeta";
+      meta.innerHTML = `<div class="small">기준(-줄):</div>`;
+
+      const ul = document.createElement("ul");
+      q.rubricLines.forEach((rl) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="mono">${escapeHtml(rl.text)}</span>`;
+        ul.appendChild(li);
+      });
+      meta.appendChild(ul);
+      card.appendChild(meta);
+
+      frag.appendChild(card);
+    });
+
+    preview.appendChild(frag);
+    updateCounts();
+  }
+
+  function renderSolve(){
+    solveWrap.innerHTML = "";
+    if(!questions.length){
+      solveWrap.innerHTML = `<div class="small">문항이 없습니다. 편집으로 돌아가서 #문항을 추가하세요.</div>`;
+      updateCounts();
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+
+    questions.forEach((q, qi) => {
+      const card = document.createElement("div");
+      card.className = "qcard";
+      card.dataset.qid = q.id;
+
+      const head = document.createElement("div");
+      head.className = "qhead";
+
+      const title = document.createElement("div");
+      title.className = "qtitle";
+      title.textContent = `${qi+1}. ${q.title}`;
+
+      const chips = document.createElement("div");
+      chips.className = "chiprow";
+
+      const c1 = document.createElement("span");
+      c1.className = "chip";
+      c1.textContent = `기준 ${q.rubricLines.length}개`;
+
+      const c2 = document.createElement("span");
+      c2.className = "chip";
+      c2.textContent = `요소 ${q.requirements.length}개`;
+
+      chips.appendChild(c1); chips.appendChild(c2);
+      head.appendChild(title);
+      head.appendChild(chips);
+      card.appendChild(head);
+
+      const ans = document.createElement("textarea");
+      ans.className = "ansbox";
+      ans.placeholder = "여기에 답안을 작성하세요…";
+      ans.id = `ans_${q.id}`;
+      card.appendChild(ans);
+
+      const res = document.createElement("div");
+      res.className = "result";
+      res.id = `res_${q.id}`;
+      res.innerHTML = `<div class="small">채점 전</div>`;
+      card.appendChild(res);
+
+      frag.appendChild(card);
+    });
+
+    solveWrap.appendChild(frag);
+    updateCounts();
+  }
+
+  function serializeState(){
+    const payload = { text: editor.value };
+    const json = JSON.stringify(payload);
+    const enc = LZString.compressToEncodedURIComponent(json);
+    return "LZ:" + enc;
+  }
+  function saveToHash(){ try{ location.hash = serializeState(); }catch(e){} }
+  function restoreFromHash(){
+    const raw = (location.hash || "").slice(1);
+    if(!raw || !raw.startsWith("LZ:")) return false;
+    try{
+      const json = LZString.decompressFromEncodedURIComponent(raw.slice(3));
+      if(!json) return false;
+      const obj = JSON.parse(json);
+      if(typeof obj.text === "string"){ editor.value = obj.text; return true; }
+    }catch(e){}
+    return false;
+  }
+  async function copyLink(){
+    saveToHash();
+    const url = location.href;
+    try{
+      await navigator.clipboard.writeText(url);
+      alert("링크가 복사되었습니다. (문항만 저장됨, API 키는 저장 안 됨)");
+    }catch{
+      alert("복사 실패. 주소창 URL을 직접 복사해 주세요.");
+    }
+  }
+
+  // ✅ 라인 단위 채점 스키마
+  function buildSchema(){
+    return {
+      type: "json_schema",
+      name: "grading_lines_v1",
+      strict: true,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["lines"],
+        properties: {
+          lines: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["line_id", "ok", "missing_req_ids", "issues"],
+              properties: {
+                line_id: { type: "string" },
+                ok: { type: "boolean" },
+                missing_req_ids: {
+                  type: "array",
+                  items: { type: "string" }
+                },
+                issues: {
+                  type: "array",
+                  items: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+  }
+
+  // ✅ 라인 단위 프롬프트: “주체-작용-대상 관계까지” 맞아야 ok
+  function buildPrompt(q, studentAnswer){
+    const linePayload = (q.rubricLines || []).map(lineObj => {
+      const reqs = lineObj.reqIds.map(rid => {
+        const req = (q.requirements || []).find(x => x.id === rid);
+        return { req_id: rid, accepted: req ? req.alts : [] };
+      });
+      return { line_id: lineObj.id, line_text: lineObj.text, requirements: reqs };
+    });
+
+    const sys = [
+      "너는 서술형 채점기다.",
+      "입력으로 '기준 문장(line_text)'과 그 문장을 이루는 필수요소(requirements)가 주어진다.",
+      "",
+      "판정 규칙(매우 중요):",
+      "1) 각 기준 문장(line_text) 자체가 학생 답안에서 '의미적으로 충족'되면 ok=true.",
+      " 기준에 적힌 표현을 학생이 그대로 썼다면, '명칭이 불명확' 같은 표준성/용어논평을 하지 마라.",
+      "(오개념/틀린 연결은 '기준과 명백히 충돌하는 주장'이 있을 때만 적는다.)",
+      "2) ok=true가 되려면 그 문장의 모든 requirements가 충족되어야 한다.",
+      "3) 단순히 단어가 등장했다고 해서 충족으로 치지 말고, '주체-작용-대상 관계'가 맞는지까지 확인한다.",
+      "   예: '갑상샘을 자극'이라는 구절이 있어도, 그것을 '생장호르몬'이 한다고 서술했다면",
+      "       '갑상샘 자극 호르몬(TSH)이 갑상샘을 자극' 기준에는 충족으로 치지 않는다.",
+      "4) 동의어/표기 차이/짧은 바꿔말하기는 허용한다.",
+      "5) 답안에 근거 없이 추론하지 말 것. 애매하면 불충족 처리.",
+      "",
+      "출력 규칙:",
+      "- lines 배열에 모든 line_id를 빠짐없이 포함한다.",
+      "- 각 줄마다 missing_req_ids에는 그 줄에서 충족되지 않은 req_id만 넣는다.",
+      "- issues에는 그 줄과 관련해 '오개념/틀린 연결/잘못된 주장'이 있으면 짧게 쓴다. 없으면 빈 배열.",
+      "- 다른 키는 출력하지 마라."
+    ].join("\n");
+
+    const user = [
+      `문항: ${q.title}`,
+      `학생 답안:\n${studentAnswer || "(빈 답안)"}`,
+      "",
+      "기준(lines):",
+      JSON.stringify(linePayload, null, 2)
+    ].join("\n");
+
+    return { sys, user };
+  }
+
+  function extractAnyText(respJson){
+    if(!respJson) return "";
+    if(typeof respJson.output_text === "string" && respJson.output_text.trim()) return respJson.output_text;
+
+    const out = respJson.output;
+    if(Array.isArray(out)){
+      for(const item of out){
+        if(item && Array.isArray(item.content)){
+          for(const c of item.content){
+            if(c && typeof c.text === "string" && c.text.trim()) return c.text;
+            if(c && typeof c.refusal === "string" && c.refusal.trim()) return c.refusal;
+          }
+        }
+      }
+    }
+    return "";
+  }
+
+  async function gradeQuestionAI({ apiKey, model, q, studentAnswer }){
+    const { sys, user } = buildPrompt(q, studentAnswer);
+
+    const body = {
+      model,
+      input: [
+        { role: "system", content: [{ type: "input_text", text: sys }] },
+        { role: "user",   content: [{ type: "input_text", text: user }] }
+      ],
+      text: { format: buildSchema() },
+      temperature: 0,
+      store: false
+    };
+
+    const r = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + apiKey
+      },
+      body: JSON.stringify(body)
+    });
+
+    const json = await r.json().catch(() => ({}));
+    if(!r.ok){
+      const msg = json?.error?.message || r.statusText || "요청 실패";
+      throw new Error(msg);
+    }
+
+    const txt = extractAnyText(json);
+    let parsed = null;
+    try{ parsed = JSON.parse(txt); }
+    catch(e){
+      const s = (txt || "").trim();
+      const start = s.indexOf("{");
+      const end = s.lastIndexOf("}");
+      if(start >= 0 && end > start) parsed = JSON.parse(s.slice(start, end+1));
+      else throw new Error("응답 JSON 파싱 실패");
+    }
+    return parsed;
+  }
+
+  // ✅ AI 결과로 점수 계산(라인 ok 개수)
+  function scoreByLines(q, aiOut){
+    const lines = Array.isArray(aiOut?.lines) ? aiOut.lines : [];
+    const map = new Map(lines.map(x => [x.line_id, x]));
+
+    let okLines = 0;
+    const total = (q.rubricLines || []).length || 0;
+
+    const missingReqIdSetByLine = new Map();
+    const issuesAll = [];
+
+    (q.rubricLines || []).forEach(lineObj => {
+      const lr = map.get(lineObj.id);
+      const ok = !!lr?.ok;
+      if(ok) okLines++;
+
+      const miss = new Set(Array.isArray(lr?.missing_req_ids) ? lr.missing_req_ids : []);
+      missingReqIdSetByLine.set(lineObj.id, miss);
+
+      const issues = Array.isArray(lr?.issues) ? lr.issues : [];
+      issues.forEach(t => { if(typeof t === "string" && t.trim()) issuesAll.push(t.trim()); });
+    });
+
+    const percent = total ? Math.round((okLines / total) * 100) : 0;
+
+    // issues 중복 제거
+    const uniqIssues = Array.from(new Set(issuesAll));
+
+    return { okLines, total, percent, missingReqIdSetByLine, issues: uniqIssues };
+  }
+
+  // ✅ 모범답안 렌더링: 못쓴/틀린 요소만 빨간 굵게
+// ✅ 모범답안 렌더링: 못쓴/틀린 요소만 빨간 굵게 (대괄호 제거 버전)
+function renderRubricLineHTML(lineObj, missingSet){
+  const t = lineObj.text;
+  const re = /\[([^\]]+)\]/g;
+  let out = "";
+  let last = 0;
+  let k = 0;
+  let m;
+
+  while((m = re.exec(t)) !== null){
+    out += escapeHtml(t.slice(last, m.index));
+
+    // ✅ 대괄호 안쪽만 표시 (대괄호 제거)
+    const tokenText = (m[1] || "").trim(); // "...", not "[...]"
+    const reqId = lineObj.reqIds[k] || null;
+    const isMiss = reqId ? missingSet.has(reqId) : false;
+
+    out += isMiss
+      ? `<span class="hl-miss">${escapeHtml(tokenText)}</span>`
+      : `<span class="mono">${escapeHtml(tokenText)}</span>`;
+
+    last = re.lastIndex;
+    k++;
+  }
+  out += escapeHtml(t.slice(last));
+
+  // 대괄호가 없는 줄이면 줄 전체를 하나의 req로 취급했으니, missing이면 전체 강조
+  if(k === 0){
+    const reqId = lineObj.reqIds[0];
+    if(reqId && missingSet.has(reqId)){
+      out = `<span class="hl-miss">${out}</span>`;
+    }
+  }
+  return out;
+}
+
+  function renderResult(q, result, errMsg){
+    const el = document.getElementById(`res_${q.id}`);
+    if(!el) return;
+
+    if(errMsg){
+      el.innerHTML = `<div class="no">오류</div><div class="small">${escapeHtml(errMsg)}</div>`;
+      return;
+    }
+
+    const { okLines, total, percent, missingReqIdSetByLine, issues } = result;
+
+    const head = `
+      <div class="score">점수: ${okLines} / ${total} (${percent}%)</div>
+      <div class="small">※ 각 기준(-줄)은 그 줄의 모든 [요소]가 “올바른 관계로” 충족되어야 1점입니다.</div>
+    `;
+
+    // ✅ 모범답안(전체) + 빨간 강조
+    const modelLines = (q.rubricLines || []).map(lineObj => {
+      const missSet = missingReqIdSetByLine.get(lineObj.id) || new Set();
+      return `<li>${renderRubricLineHTML(lineObj, missSet)}</li>`;
+    }).join("");
+
+    const modelBox = `
+      <div class="modelBox">
+        <div class="small"><b>모범답안</b> (못쓴/틀린 부분만 <span class="hl-miss">빨간 굵게</span>)</div>
+        <ul>${modelLines}</ul>
+      </div>
+    `;
+
+    // ✅ 오개념/틀린 연결(있으면)
+    const issueBox = issues && issues.length ? `
+      <div class="issueBox">
+        <div class="no">오개념/틀린 연결</div>
+        <ul>${issues.map(x => `<li><span class="hl-miss">${escapeHtml(x)}</span></li>`).join("")}</ul>
+      </div>
+    ` : "";
+
+    el.innerHTML = head + modelBox + issueBox;
+  }
+
+  function setLoading(q){
+    const el = document.getElementById(`res_${q.id}`);
+    if(!el) return;
+    el.innerHTML = `<div><span class="spinner"></span> 채점 중…</div><div class="small">문항별로 순차 채점합니다.</div>`;
+  }
+
+  function showEdit(){
+    editView.classList.remove("hidden");
+    solveView.classList.add("hidden");
+    btnEdit.classList.add("active");
+    btnSolve.classList.remove("active");
+    modeBadge.textContent = "에디터";
+    modeTitle.textContent = "기준 작성 & 미리보기";
+  }
+  function showSolve(){
+    editView.classList.add("hidden");
+    solveView.classList.remove("hidden");
+    btnEdit.classList.remove("active");
+    btnSolve.classList.add("active");
+    modeBadge.textContent = "풀이";
+    modeTitle.textContent = "학생 답안 작성 & 채점";
+  }
+
+  function refresh(){
+    questions = parseRubric(editor.value);
+    renderPreview();
+    saveToHash();
+  }
+
+  editor.addEventListener("input", refresh);
+  btnEdit.addEventListener("click", () => { refresh(); showEdit(); });
+  btnSolve.addEventListener("click", () => {
+    refresh();
+    if(!questions.length){ alert("#문항을 최소 1개 이상 입력해 주세요."); return; }
+    renderSolve();
+    showSolve();
+  });
+
+  goSolveBtn.addEventListener("click", () => btnSolve.click());
+  backEditBtn.addEventListener("click", () => btnEdit.click());
+  copyLinkBtn.addEventListener("click", copyLink);
+
+  toggleKey.addEventListener("click", () => {
+    apiKeyEl.type = (apiKeyEl.type === "password") ? "text" : "password";
+    toggleKey.textContent = (apiKeyEl.type === "password") ? "키 보기" : "키 숨기기";
+  });
+
+  resetAllBtn.addEventListener("click", () => {
+    if(!confirm("문항을 전부 지울까요?")) return;
+    editor.value = "";
+    refresh();
+  });
+
+  loadExampleBtn.addEventListener("click", () => {
+    editor.value =
+`#뇌하수체 호르몬에 대해 적으시오
+-[생장호르몬] 은 [생장]과 [대사]를 자극함
+-[갑상샘 자극 호르몬/TSH] 은 [갑상샘을 자극하여] [티록신/티로신/갑상샘호르몬]을 분비하게 한다.`;
+    refresh();
+  });
+
+  clearAnswersBtn.addEventListener("click", () => {
+    questions.forEach(q => {
+      const ta = document.getElementById(`ans_${q.id}`);
+      const re = document.getElementById(`res_${q.id}`);
+      if(ta) ta.value = "";
+      if(re) re.innerHTML = `<div class="small">채점 전</div>`;
+    });
+  });
+
+  gradeAllBtn.addEventListener("click", async () => {
+    const apiKey = (apiKeyEl.value || "").trim();
+    if(!apiKey){ alert("API Key를 입력해 주세요."); return; }
+    if(!questions.length){ alert("문항이 없습니다."); return; }
+
+    gradeAllBtn.disabled = true;
+    gradeAllBtn.innerHTML = `<span class="spinner"></span> 채점 중…`;
+
+    try{
+      const model = modelSel.value;
+      for(const q of questions){
+        const ta = document.getElementById(`ans_${q.id}`);
+        const studentAnswer = (ta ? ta.value : "").trim();
+        setLoading(q);
+
+        try{
+          const aiOut = await gradeQuestionAI({ apiKey, model, q, studentAnswer });
+          const scored = scoreByLines(q, aiOut);
+          renderResult(q, scored, null);
+        }catch(err){
+          renderResult(q, null, err?.message || String(err));
+        }
+      }
+    } finally {
+      gradeAllBtn.disabled = false;
+      gradeAllBtn.textContent = "채점";
+    }
+  });
+
+  if(!restoreFromHash()){
+    editor.value =
+`#뇌하수체 호르몬에 대해 적으시오
+-[생장호르몬] 은 [생장]과 [대사]를 자극함
+-[갑상샘 자극 호르몬] 은 [갑상샘을 자극하여] [티로신을 분비]한다.`;
+  }
+
+  refresh();
+  showEdit();
+})();
+</script>
+</body>
+</html>
