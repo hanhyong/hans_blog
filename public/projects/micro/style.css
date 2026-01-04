@@ -1,0 +1,252 @@
+:root{
+  --bg:#0b0c10;
+  --panel:#11131a;
+  --fg:#e8eaf0;
+  --muted:#a7adbd;
+  --line:#232736;
+  --accent:#7aa2ff;
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+
+
+.stage{ position:relative; padding:12px; }
+
+#view{
+  width:100%;
+  height:100%;
+  display:block;
+  background:#000;
+  border-radius:14px;
+  outline:1px solid var(--line);
+}
+
+.hud{
+  position:absolute;
+  left:18px;
+  top:18px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:rgba(0,0,0,0.45);
+  backdrop-filter: blur(6px);
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.45;
+  border:1px solid rgba(255,255,255,0.06);
+}
+
+.panel{
+  height:100%;
+  overflow:auto;
+  padding:16px 14px 28px;
+  background:var(--panel);
+  border-left:1px solid var(--line);
+}
+
+.panel h1{ margin:0 0 10px; font-size:16px; }
+
+.block{
+  padding:12px 10px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  margin:10px 0;
+  background:rgba(255,255,255,0.02);
+}
+
+.block h2{ margin:0 0 10px; font-size:13px; color:#dfe3ff; }
+
+.row{
+  display:grid;
+  grid-template-columns: 110px 1fr 64px;
+  gap:10px;
+  align-items:center;
+  margin:8px 0;
+}
+
+.lab{ color:var(--muted); font-size:12px; }
+.val{ color:#cdd4ff; font-size:12px; text-align:right; font-variant-numeric: tabular-nums; }
+
+.radios{ grid-template-columns: 2fr 1fr; gap:8px 10px; margin-top:6px; }
+.radios label{
+  display:flex; align-items:center; gap:8px;
+  padding:8px 10px; border-radius:12px;
+  border:1px solid var(--line);
+  background:rgba(0,0,0,0.25);
+  cursor:pointer; user-select:none;
+}
+.radios input{ accent-color: var(--accent); }
+
+.note{ margin:8px 0 0; color:var(--muted); font-size:12px; line-height:1.4; }
+
+.details{ margin-top:8px; }
+.details summary{ cursor:pointer; color:#dfe3ff; font-size:12px; padding:6px 2px; }
+/* ✅ Z 매핑(가상 포커스 디버그) 4개 박스: 한 줄로 */
+.grid2{
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+  padding-bottom:8px;
+}
+.grid2 .cell{
+  flex:0 0 280px; /* 박스 폭 */
+}
+.grid2::-webkit-scrollbar{ height:8px; }
+.grid2::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.12); border-radius:999px; }
+.grid2::-webkit-scrollbar-track{ background:rgba(255,255,255,0.06); border-radius:999px; }
+
+.params{ margin-top:10px; display:grid; gap:10px; }
+
+.paramRow{
+  display:grid;
+  grid-template-columns: 110px 1fr 64px;
+  gap:10px;
+  align-items:center;
+}
+.paramRow label{ color:var(--muted); font-size:12px; }
+
+input[type="range"]{ width:100%; }
+/* ===== FIX: range slider visible + correct hitbox ===== */
+input[type="range"]{
+  -webkit-appearance:none;
+  appearance:none;
+  width:100%;
+  min-width:140px;          /* 너무 좁아져서 클릭이 끝으로 튀는 것 방지 */
+  height:28px;              /* 클릭/드래그 히트박스 */
+  background:transparent;
+  margin:0;
+  padding:0;
+  direction:ltr;
+  writing-mode:horizontal-tb;
+  touch-action:none;        /* 드래그 중 스크롤/제스처 방지 */
+  position:relative;
+  z-index:1;
+}
+
+/* WebKit track */
+input[type="range"]::-webkit-slider-runnable-track{
+  height:6px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.28);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+}
+
+/* WebKit thumb */
+input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:rgba(220,225,255,0.95);
+  border:2px solid rgba(0,0,0,0.25);
+  margin-top:-5px;          /* track(6px) 중앙 정렬 */
+  box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+}
+
+/* Firefox track */
+input[type="range"]::-moz-range-track{
+  height:6px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.28);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+}
+input[type="range"]::-moz-range-thumb{
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:rgba(220,225,255,0.95);
+  border:2px solid rgba(0,0,0,0.25);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+}
+
+/* 값 텍스트가 슬라이더 위로 겹쳐 클릭을 뺏는 경우 방지 */
+.row .val, .paramRow .val { pointer-events:none; }
+.magList{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.magCard{
+  width:100%;
+  display:block;
+}
+html, body { height:100%; }
+
+.app{
+  height:100vh;              /* ✅ 이게 핵심 */
+  display:grid;
+  grid-template-columns: 1fr 440px;
+  gap:16px;
+  padding:16px;
+  max-width:1400px;
+  margin:0 auto;
+}
+
+
+.viewerCard, .card{
+  background:rgba(15,18,24,0.85);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:14px;
+  padding:14px;
+}
+
+.panel{ display:flex; flex-direction:column; gap:14px; }
+
+.canvasWrap{ position:relative; border-radius:12px; overflow:hidden; }
+canvas#gl{ width:100%; height:auto; display:block; background:#000; }
+
+.badgeRow{ position:absolute; top:10px; left:10px; display:flex; gap:8px; }
+.badge{
+  padding:6px 10px; border-radius:999px;
+  background:rgba(0,0,0,0.45);
+  border:1px solid rgba(255,255,255,0.12);
+  color:#fff; font-size:13px;
+}
+
+.row{
+  display:grid;
+  grid-template-columns: 90px 1fr 70px;
+  align-items:center;
+  gap:10px;
+  margin:10px 0;
+}
+.label{ color:rgba(255,255,255,0.85); font-size:13px; }
+.val{ color:rgba(210,220,255,0.9); text-align:right; font-variant-numeric: tabular-nums; }
+
+.radioRow{ display:flex; flex-wrap:wrap; gap:10px; }
+.radio{ display:flex; align-items:center; gap:8px; color:#fff; }
+
+.details summary{
+  cursor:pointer;
+  color:rgba(255,255,255,0.9);
+  margin-top:8px;
+}
+
+.paramGrid .row{ margin:8px 0; grid-template-columns: 110px 1fr 70px; }
+
+.magList{ display:flex; flex-direction:column; gap:14px; }
+.magCard{ padding:12px; border-radius:12px; background:rgba(0,0,0,0.22); border:1px solid rgba(255,255,255,0.06); }
+.magHeader{ color:#fff; font-weight:700; margin-bottom:8px; }
+
+.smallNote{ color:rgba(255,255,255,0.55); font-size:12px; line-height:1.35; }
+.log{ margin:0; white-space:pre-wrap; color:rgba(220,230,255,0.9); font-size:12px; }
+.btn{
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.10);
+  color:#fff; padding:10px 12px; border-radius:10px;
+}
+.quickRow{ display:flex; gap:10px; margin-top:12px; }
+/* ✅ 모드 토글 */
+body[data-mode="user"] .debug-only{ display:none !important; }
+
+
+.zoomGrid .row{
+  grid-template-columns: 70px 1fr 64px;
+}
+/* 배율 라디오만 1줄 4칸 */
+.mag-controls{
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap:8px 10px;
+}

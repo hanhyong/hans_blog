@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <div class="stage">
+      <canvas id="view"></canvas>
+
+      <!-- ✅ HUD: id 중복 제거 -->
+      <div class="hud">
+        <div>Mag: <span id="hudMagVal"></span></div>
+        <div>Z: <span id="hudZVal"></span></div>
+        <div>Pan: <span id="hudPxVal"></span>, <span id="hudPyVal"></span></div>
+      </div>
+    </div>
+
+    <aside class="panel" id="ui">
+      <h1>Controls</h1>
+<section class="block">
+  <h2>모드</h2>
+  <div class="row radios" style="grid-template-columns:1fr 1fr;">
+    <label><input type="radio" name="mode" value="user" checked> 사용자</label>
+    <label><input type="radio" name="mode" value="debug"> 디버그</label>
+  </div>
+</section>
+
+      <!-- ✅ 프레파라트 선택 UI 추가 -->
+      <section class="block">
+        <h2>프레파라트</h2>
+
+        <div class="row">
+          <label class="lab">시료</label>
+          <select id="specimen"></select>
+        </div>
+
+        <div class="row">
+          <label class="lab">조건</label>
+          <select id="variant"></select>
+        </div>
+
+        <p class="note" id="loadStatus">준비 중…</p>
+      </section>
+
+      <section class="block">
+  <h2>배율</h2>
+
+  <div class="radios mag-controls">
+    <label><input type="radio" name="mag" value="40" checked> 40×</label>
+    <label><input type="radio" name="mag" value="100"> 100×</label>
+    <label><input type="radio" name="mag" value="400"> 400×</label>
+    <label><input type="radio" name="mag" value="1000"> 1000×</label>
+  </div>
+
+  <!-- ✅ 현재 매핑 표시(동적으로 갱신) -->
+  <p class="note" id="zoomNote"></p>
+
+  <!-- ✅ 디버그 모드에서만 실제 줌 배수 조절 -->
+  <details class="details debug-only" open>
+    <summary>배율별 실제 줌 배수</summary>
+
+    <div class="zoomGrid">
+      <div class="row">
+        <label class="lab">40× →</label>
+        <input id="zoom40" type="range" min="0.1" max="20" step="0.01" value="0.40" />
+        <span class="val" id="zoom40_v"></span>
+      </div>
+
+      <div class="row">
+        <label class="lab">100× →</label>
+        <input id="zoom100" type="range" min="0.1" max="20" step="0.01" value="1.00" />
+        <span class="val" id="zoom100_v"></span>
+      </div>
+
+      <div class="row">
+        <label class="lab">400× →</label>
+        <input id="zoom400" type="range" min="0.1" max="20" step="0.01" value="4.00" />
+        <span class="val" id="zoom400_v"></span>
+      </div>
+
+      <div class="row">
+        <label class="lab">1000× →</label>
+        <input id="zoom1000" type="range" min="0.1" max="20" step="0.01" value="10.00" />
+        <span class="val" id="zoom1000_v"></span>
+      </div>
+    </div>
+
+  </details>
+</section>
+
+
+      <section class="block">
+        <h2>포커스</h2>
+        <div class="row">
+          <label class="lab">Z</label>
+          <input id="z" type="range" min="-30" max="40" step="0.1" value="0" />
+          <!-- ✅ 패널 값: id 중복 제거 -->
+          <span class="val" id="uiZVal"></span>
+        </div>
+        <details class="details debug-only" open>
+          <summary>배율별 매핑</summary>
+
+          <div class="grid2">
+
+            <div class="cell">
+              <h3>40×</h3>
+
+              <div class="row">
+                <label class="lab">Z@1</label>
+                <input id="z40_at1" type="range" min="-80" max="80" step="0.1" value="-20">
+                <span class="val" id="z40_at1_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Z@24</label>
+                <input id="z40_at24" type="range" min="-80" max="80" step="0.1" value="24">
+                <span class="val" id="z40_at24_v"></span>
+              </div>
+
+              <div class="row">
+                <label class="lab">Blur Span</label>
+                <input id="z40_blurSpan" type="range" min="0.5" max="60" step="0.1" value="10">
+                <span class="val" id="z40_blurSpan_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Fade Span</label>
+                <input id="z40_fadeSpan" type="range" min="0.5" max="60" step="0.1" value="10">
+                <span class="val" id="z40_fadeSpan_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Blur Max</label>
+                <input id="z40_blurMax" type="range" min="0" max="12" step="0.1" value="7">
+                <span class="val" id="z40_blurMax_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Fade Power</label>
+                <input id="z40_fadePow" type="range" min="0.2" max="6" step="0.1" value="1.5">
+                <span class="val" id="z40_fadePow_v"></span>
+              </div>
+            </div>
+
+            <div class="cell">
+              <h3>100×</h3>
+
+              <div class="row">
+                <label class="lab">Z@1</label>
+                <input id="z100_at1" type="range" min="-80" max="80" step="0.1" value="-5">
+                <span class="val" id="z100_at1_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Z@24</label>
+                <input id="z100_at24" type="range" min="-80" max="80" step="0.1" value="24">
+                <span class="val" id="z100_at24_v"></span>
+              </div>
+
+              <div class="row">
+                <label class="lab">Blur Span</label>
+                <input id="z100_blurSpan" type="range" min="0.5" max="60" step="0.1" value="10">
+                <span class="val" id="z100_blurSpan_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Fade Span</label>
+                <input id="z100_fadeSpan" type="range" min="0.5" max="60" step="0.1" value="10">
+                <span class="val" id="z100_fadeSpan_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Blur Max</label>
+                <input id="z100_blurMax" type="range" min="0" max="12" step="0.1" value="7">
+                <span class="val" id="z100_blurMax_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Fade Power</label>
+                <input id="z100_fadePow" type="range" min="0.2" max="6" step="0.1" value="1.5">
+                <span class="val" id="z100_fadePow_v"></span>
+              </div>
+            </div>
+
+            <div class="cell">
+              <h3>400×</h3>
+
+              <div class="row">
+                <label class="lab">Z@1</label>
+                <input id="z400_at1" type="range" min="-80" max="80" step="0.1" value="0">
+                <span class="val" id="z400_at1_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Z@24</label>
+                <input id="z400_at24" type="range" min="-80" max="80" step="0.1" value="24">
+                <span class="val" id="z400_at24_v"></span>
+              </div>
+
+              <div class="row">
+                <label class="lab">Blur Span</label>
+                <input id="z400_blurSpan" type="range" min="0.5" max="60" step="0.1" value="8">
+                <span class="val" id="z400_blurSpan_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Fade Span</label>
+                <input id="z400_fadeSpan" type="range" min="0.5" max="60" step="0.1" value="8">
+                <span class="val" id="z400_fadeSpan_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Blur Max</label>
+                <input id="z400_blurMax" type="range" min="0" max="12" step="0.1" value="8">
+                <span class="val" id="z400_blurMax_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Fade Power</label>
+                <input id="z400_fadePow" type="range" min="0.2" max="6" step="0.1" value="1.7">
+                <span class="val" id="z400_fadePow_v"></span>
+              </div>
+            </div>
+
+            <div class="cell">
+              <h3>1000×</h3>
+
+              <div class="row">
+                <label class="lab">Z@1</label>
+                <input id="z1000_at1" type="range" min="-80" max="80" step="0.1" value="1">
+                <span class="val" id="z1000_at1_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Z@24</label>
+                <input id="z1000_at24" type="range" min="-80" max="80" step="0.1" value="10">
+                <span class="val" id="z1000_at24_v"></span>
+              </div>
+
+              <div class="row">
+                <label class="lab">Blur Span</label>
+                <input id="z1000_blurSpan" type="range" min="0.5" max="60" step="0.1" value="4">
+                <span class="val" id="z1000_blurSpan_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Fade Span</label>
+                <input id="z1000_fadeSpan" type="range" min="0.5" max="60" step="0.1" value="4">
+                <span class="val" id="z1000_fadeSpan_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Blur Max</label>
+                <input id="z1000_blurMax" type="range" min="0" max="12" step="0.1" value="9">
+                <span class="val" id="z1000_blurMax_v"></span>
+              </div>
+              <div class="row">
+                <label class="lab">Fade Power</label>
+                <input id="z1000_fadePow" type="range" min="0.2" max="6" step="0.1" value="2.2">
+                <span class="val" id="z1000_fadePow_v"></span>
+              </div>
+            </div>
+
+          </div>
+        </details>
+      </section>
+
+      <section class="block">
+        <h2>평행 이동</h2>
+        <div class="row">
+          <label class="lab">px</label>
+          <input id="panX" type="range" min="-3000" max="3000" step="1" value="0" />
+          <!-- ✅ 패널 값: id 중복 제거 -->
+          <span class="val" id="uiPxVal"></span>
+        </div>
+        <div class="row">
+          <label class="lab">px</label>
+          <input id="panY" type="range" min="-3000" max="3000" step="1" value="0" />
+          <!-- ✅ 패널 값: id 중복 제거 -->
+          <span class="val" id="uiPyVal"></span>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>마스터 슬라이더</h2>
+        <div class="row">
+          <label class="lab">광원</label>
+          <input id="brightMaster" type="range" min="0" max="100" step="0.1" value="50" />
+          <span class="val" id="brightVal"></span>
+        </div>
+        <div class="row">
+          <label class="lab">조리개</label>
+          <input id="apertureMaster" type="range" min="0" max="100" step="0.1" value="50" />
+          <span class="val" id="apertureVal"></span>
+        </div>
+      </section>
+
+      <section class="block">
+        <details class="details debug-only" open>
+          <summary>밝기=0일 때</summary>
+          <div class="params" id="B0_params"></div>
+        </details>
+
+        <details class="details debug-only" open>
+          <summary>밝기=100일 때</summary>
+          <div class="params" id="B100_params"></div>
+        </details>
+
+        <details class="details debug-only" open>
+          <summary>조리개=0일 때</summary>
+          <div class="params" id="A0_params"></div>
+        </details>
+
+        <details class="details debug-only" open>
+          <summary>조리개=100일 때</summary>
+          <div class="params" id="A100_params"></div>
+        </details>
+
+      </section>
+    </aside>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
